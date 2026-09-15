@@ -1,0 +1,1175 @@
+<title>Dagen min</title>
+<meta name="description" content="Visuell timeplan for elev med tale og lærerstyring">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBF6EC;
+    --paper-dim:#F1E9D8;
+    --ink:#2B2521;
+    --ink-soft:#6B6259;
+    --line:#E4D9C3;
+    --accent:#2F6F5E;
+    --accent-strong:#20504A;
+    --accent-tint:#DCEBE6;
+    --danger:#C4443A;
+    --stage-paper:#FBF6EC;
+    --stage-ink:#2B2521;
+    --wait-fill:#8A8177;
+    --wait-ink:#FFFFFF;
+    --done-fill:#5F8F72;
+    --done-ink:#FFFFFF;
+    --off-fill:#5B6B8C;
+    --off-ink:#FFFFFF;
+    --shadow-soft:0 1px 2px rgba(43,37,33,.06), 0 8px 24px rgba(43,37,33,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#18140F;
+      --paper-dim:#221D17;
+      --ink:#F2EBDD;
+      --ink-soft:#B6AC9C;
+      --line:#3A3226;
+      --accent:#4CAE93;
+      --accent-strong:#3C8E77;
+      --accent-tint:#1E2E29;
+      --danger:#E5786D;
+      --shadow-soft:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#18140F;
+    --paper-dim:#221D17;
+    --ink:#F2EBDD;
+    --ink-soft:#B6AC9C;
+    --line:#3A3226;
+    --accent:#4CAE93;
+    --accent-strong:#3C8E77;
+    --accent-tint:#1E2E29;
+    --danger:#E5786D;
+    --shadow-soft:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Public Sans",system-ui,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  h1,h2,h3{font-family:"Baloo 2",system-ui,sans-serif;text-wrap:balance;}
+  button{font-family:inherit;}
+  [hidden]{display:none!important;}
+  .tabular{font-variant-numeric:tabular-nums;}
+
+  /* ---------- Mode switch (top-level) ---------- */
+  #app{min-height:100%;}
+
+  /* ================= STUDENT STAGE ================= */
+  #studentView{
+    min-height:100vh;
+    background:var(--stage-paper);
+    color:var(--stage-ink);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    padding:24px;
+    overflow:hidden;
+  }
+  .stage-clock{
+    position:absolute;
+    top:20px;
+    left:24px;
+    font-size:clamp(16px,2.2vmin,22px);
+    color:var(--stage-ink);
+    opacity:.55;
+    font-weight:600;
+    letter-spacing:.02em;
+  }
+  .stage-student-name{
+    position:absolute;
+    top:20px;
+    right:24px;
+    font-size:clamp(14px,2vmin,19px);
+    color:var(--stage-ink);
+    opacity:.5;
+    font-weight:600;
+  }
+  .badge-frame{
+    position:relative;
+    width:min(66vmin,560px);
+    aspect-ratio:1/1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .badge-frame svg.ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);}
+  .ring-track{fill:none;stroke:var(--line);stroke-width:3.4;}
+  .ring-progress{fill:none;stroke-width:3.4;stroke-linecap:round;transition:stroke-dashoffset .4s linear;}
+  .badge{
+    position:absolute;
+    inset:6%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    border:none;
+    padding:0;
+    transition:transform .15s ease;
+  }
+  .badge:active{transform:scale(.97);}
+  @media (prefers-reduced-motion: reduce){
+    .badge{transition:none;}
+    .badge:active{transform:none;}
+    .pulse{animation:none!important;}
+  }
+  .shape-circle{border-radius:50%;}
+  .shape-square{border-radius:18%;}
+  .shape-hexagon{clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0% 50%);}
+  .shape-octagon{clip-path:polygon(30% 2%,70% 2%,98% 30%,98% 70%,70% 98%,30% 98%,2% 70%,2% 30%);}
+  .badge-inner{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:clamp(6px,1.6vmin,16px);
+    text-align:center;
+    padding:6%;
+    width:60%;
+  }
+  .shape-hexagon .badge-inner{width:56%;}
+  .shape-octagon .badge-inner{width:54%;}
+  .badge-icon{width:clamp(40px,11vmin,84px);height:clamp(40px,11vmin,84px);}
+  .badge-label{
+    font-family:"Baloo 2",system-ui,sans-serif;
+    font-weight:800;
+    font-size:clamp(24px,5.4vmin,52px);
+    line-height:1.05;
+  }
+  .badge-sub{
+    font-size:clamp(13px,2.2vmin,20px);
+    font-weight:600;
+    opacity:.92;
+  }
+  .stage-caption{
+    margin-top:clamp(14px,3vmin,28px);
+    font-size:clamp(14px,2vmin,19px);
+    color:var(--stage-ink);
+    opacity:.6;
+    font-weight:600;
+    text-align:center;
+  }
+  .hint-tap{
+    margin-top:6px;
+    font-size:clamp(12px,1.6vmin,16px);
+    opacity:.45;
+    font-weight:500;
+  }
+  @keyframes softpulse{0%,100%{opacity:1}50%{opacity:.55}}
+  .pulse{animation:softpulse 2.4s ease-in-out infinite;}
+
+  .gear-btn{
+    position:absolute;
+    bottom:16px;
+    right:16px;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:var(--paper-dim);
+    color:var(--ink-soft);
+    opacity:.55;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .gear-btn svg{width:20px;height:20px;}
+
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(20,16,12,.45);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .modal-card{
+    background:var(--paper);color:var(--ink);border-radius:20px;
+    padding:28px;max-width:360px;width:100%;box-shadow:var(--shadow-soft);
+    text-align:center;
+  }
+  .modal-card h3{margin:0 0 8px;font-size:22px;}
+  .modal-card p{margin:0 0 20px;color:var(--ink-soft);font-size:15px;line-height:1.5;}
+  .modal-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  .btn{
+    font-family:"Public Sans",system-ui,sans-serif;
+    font-weight:600;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:var(--paper-dim);
+    color:var(--ink);
+    padding:12px 18px;
+    font-size:15px;
+    cursor:pointer;
+  }
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.danger{background:transparent;border-color:var(--line);color:var(--danger);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  /* ================= TEACHER DASHBOARD ================= */
+  #teacherView{min-height:100vh;background:var(--paper);}
+  .th-header{
+    position:sticky;top:0;z-index:10;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px 22px;border-bottom:1px solid var(--line);
+    background:var(--paper);flex-wrap:wrap;
+  }
+  .th-title{display:flex;align-items:baseline;gap:10px;}
+  .th-title h1{font-size:22px;margin:0;}
+  .th-title span{color:var(--ink-soft);font-size:14px;font-weight:600;}
+  .th-header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+
+  .th-body{
+    display:grid;
+    grid-template-columns:minmax(0,1.35fr) minmax(300px,.9fr);
+    gap:0;
+    align-items:start;
+  }
+  @media (max-width:900px){
+    .th-body{grid-template-columns:1fr;}
+  }
+  .th-main{padding:20px 22px 60px;min-width:0;}
+  .th-side{
+    padding:20px 22px 60px;
+    border-left:1px solid var(--line);
+    position:sticky;top:60px;
+    align-self:start;
+  }
+  @media (max-width:900px){
+    .th-side{border-left:none;border-top:1px solid var(--line);position:static;}
+  }
+
+  .panel{
+    background:var(--paper-dim);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:18px;
+    margin-bottom:18px;
+  }
+  .panel h2{font-size:17px;margin:0 0 4px;}
+  .panel .panel-desc{font-size:13px;color:var(--ink-soft);margin:0 0 14px;}
+
+  .day-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .day-tab{
+    padding:8px 14px;border-radius:999px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink-soft);font-weight:600;font-size:13.5px;cursor:pointer;
+  }
+  .day-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  .period-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:9px 10px;
+    padding:12px 0;border-bottom:1px solid var(--line);
+  }
+  .period-row:last-child{border-bottom:none;}
+  .period-row input[type=time]{flex:0 0 auto;width:108px;}
+  .field{
+    font-family:inherit;font-size:14px;padding:7px 8px;border-radius:8px;
+    border:1px solid var(--line);background:var(--paper);color:var(--ink);
+  }
+  .field.subject{flex:1 1 140px;min-width:110px;}
+  .icon-select{flex:0 0 auto;}
+  .swatch-btn{
+    width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0;
+  }
+  .swatch-btn.selected{border-color:var(--ink);}
+  .swatch-row{display:flex;gap:5px;flex-wrap:wrap;}
+  .shape-pick{display:flex;gap:5px;}
+  .shape-pick button{
+    width:26px;height:26px;border:1px solid var(--line);background:var(--paper);cursor:pointer;padding:0;
+  }
+  .shape-pick button.selected{border-color:var(--accent);border-width:2px;}
+  .shape-pick button.sp-circle{border-radius:50%;}
+  .shape-pick button.sp-square{border-radius:20%;}
+  .shape-pick button.sp-hexagon{clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0% 50%);}
+  .shape-pick button.sp-octagon{clip-path:polygon(30% 2%,70% 2%,98% 30%,98% 70%,70% 98%,30% 98%,2% 70%,2% 30%);}
+  .icon-select{font-size:13px;}
+  .row-del{
+    border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:18px;line-height:1;padding:4px;
+  }
+  .row-del:hover{color:var(--danger);}
+  .add-row-btn{margin-top:12px;}
+
+  .alert-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);}
+  .alert-row:last-child{border-bottom:none;}
+  .toggle{position:relative;width:38px;height:22px;flex-shrink:0;}
+  .toggle input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer;margin:0;}
+  .toggle .track{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s;}
+  .toggle .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3);}
+  .toggle input:checked + .track{background:var(--accent);}
+  .toggle input:checked ~ .knob{transform:translateX(16px);}
+
+  .manual-controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  .manual-controls .btn{flex:1;min-width:110px;}
+  .mode-banner{
+    font-size:13px;font-weight:600;padding:8px 12px;border-radius:10px;margin-bottom:12px;
+    background:var(--accent-tint);color:var(--accent-strong);
+  }
+  .mode-banner.manual{background:#F5E4C8;color:#8A5A16;}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .mode-banner.manual{background:#3A2E14;color:#E8B65C;}
+  }
+  :root[data-theme="dark"] .mode-banner.manual{background:#3A2E14;color:#E8B65C;}
+
+  .mini-frame{
+    width:100%;
+    max-width:280px;
+    aspect-ratio:9/16;
+    margin:0 auto 14px;
+    border-radius:22px;
+    border:6px solid var(--ink);
+    background:var(--stage-paper);
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:var(--shadow-soft);
+  }
+  .mini-frame .badge-frame{width:60%;}
+  .mini-frame .badge-label{font-size:clamp(11px,4vw,17px);}
+  .mini-frame .badge-sub{font-size:clamp(8px,2.4vw,11px);}
+  .mini-frame .stage-caption{font-size:11px;margin-top:8px;}
+  .mini-frame .badge-icon{width:clamp(16px,9vw,30px);height:clamp(16px,9vw,30px);}
+
+  .field-label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:0 0 5px;text-transform:uppercase;letter-spacing:.04em;}
+  .name-input{width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px;font-family:inherit;}
+
+  .pin-input{
+    width:100%;max-width:160px;text-align:center;
+    font-size:26px;letter-spacing:.35em;padding:10px 8px 10px 14px;
+    border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);
+    font-family:"Public Sans",system-ui,sans-serif;font-variant-numeric:tabular-nums;
+  }
+  .pin-error{color:var(--danger);font-size:13.5px;font-weight:600;margin:10px 0 0;min-height:1.2em;}
+  .pin-change-row{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .pin-change-row .pin-input{font-size:18px;letter-spacing:.3em;padding:8px 8px 8px 12px;max-width:100px;}
+</style>
+
+<div id="app">
+  <!-- ===================== STUDENT VIEW ===================== -->
+  <div id="studentView">
+    <div class="stage-clock tabular" id="stageClock">--:--</div>
+    <div class="stage-student-name" id="stageStudentName"></div>
+
+    <div class="badge-frame" id="badgeFrame">
+      <svg class="ring" viewBox="0 0 100 100">
+        <circle class="ring-track" cx="50" cy="50" r="46"></circle>
+        <circle class="ring-progress" id="ringProgress" cx="50" cy="50" r="46"
+          stroke="var(--accent)" stroke-dasharray="289" stroke-dashoffset="289"></circle>
+      </svg>
+      <button class="badge" id="badgeBtn" aria-label="Trykk for å høre hva som skjer nå">
+        <div class="badge-inner">
+          <svg class="badge-icon" id="badgeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></svg>
+          <div class="badge-label" id="badgeLabel">Laster …</div>
+          <div class="badge-sub" id="badgeSub"></div>
+        </div>
+      </button>
+    </div>
+    <div class="stage-caption" id="stageCaption"></div>
+    <div class="hint-tap">Trykk på figuren for å høre</div>
+
+    <button class="gear-btn" id="gearBtn" aria-label="Lærerinnstillinger" title="Lærerinnstillinger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+  </div>
+
+  <!-- gear PIN modal -->
+  <div class="modal-backdrop" id="gearModal" hidden>
+    <div class="modal-card">
+      <h3>Lærervisning</h3>
+      <p>Skriv inn PIN-koden for å åpne lærerinnstillinger.</p>
+      <input class="pin-input" id="pinInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="PIN-kode">
+      <p class="pin-error" id="pinError"></p>
+      <div class="modal-actions">
+        <button class="btn" id="gearCancel">Avbryt</button>
+        <button class="btn primary" id="gearConfirm">Lås opp</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TEACHER VIEW ===================== -->
+  <div id="teacherView" hidden>
+    <div class="th-header">
+      <div class="th-title">
+        <h1>Dagen min</h1>
+        <span>Lærerpanel</span>
+      </div>
+      <div class="th-header-actions">
+        <button class="btn" id="testVoiceBtn">Test tale</button>
+        <button class="btn primary" id="toStudentBtn">Vis elevskjerm</button>
+      </div>
+    </div>
+
+    <div class="th-body">
+      <div class="th-main">
+        <div class="panel">
+          <h2>Elevens navn</h2>
+          <p class="panel-desc">Vises øverst på elevskjermen (valgfritt).</p>
+          <input class="name-input" id="studentNameInput" placeholder="F.eks. Emma" maxlength="40">
+        </div>
+
+        <div class="panel">
+          <h2>Timeplan</h2>
+          <p class="panel-desc">Sett opp fag, farge, figur og ikon for hver dag. Endringer lagres automatisk og vises med en gang på elevskjermen.</p>
+          <div class="day-tabs" id="dayTabs"></div>
+          <div id="periodList"></div>
+          <button class="btn add-row-btn" id="addPeriodBtn">+ Legg til time</button>
+        </div>
+
+        <div class="panel">
+          <h2>Varsler</h2>
+          <p class="panel-desc">Snakkes høyt på et bestemt klokkeslett, uansett hvilket fag som vises (f.eks. «Om 5 minutter er det lunsj»).</p>
+          <div id="alertList"></div>
+          <button class="btn add-row-btn" id="addAlertBtn">+ Legg til varsel</button>
+        </div>
+      </div>
+
+      <div class="th-side">
+        <div class="panel">
+          <h2>Elevskjerm nå</h2>
+          <p class="panel-desc">Slik ser det ut på iPaden akkurat nå.</p>
+          <div class="mini-frame" id="miniFrame">
+            <div class="badge-frame">
+              <svg class="ring" viewBox="0 0 100 100">
+                <circle class="ring-track" cx="50" cy="50" r="46"></circle>
+                <circle class="ring-progress" id="miniRingProgress" cx="50" cy="50" r="46" stroke="var(--accent)" stroke-dasharray="289" stroke-dashoffset="289"></circle>
+              </svg>
+              <div class="badge" style="cursor:default;">
+                <div class="badge-inner">
+                  <svg class="badge-icon" id="miniBadgeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></svg>
+                  <div class="badge-label" id="miniBadgeLabel"></div>
+                  <div class="badge-sub" id="miniBadgeSub"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stage-caption" id="miniCaption" style="margin-top:0;"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Styring</h2>
+          <div class="mode-banner" id="modeBanner"></div>
+          <div class="manual-controls">
+            <button class="btn" id="prevBtn">← Forrige</button>
+            <button class="btn" id="nextBtn">Neste →</button>
+          </div>
+          <button class="btn" id="resumeAutoBtn" style="width:100%;margin-bottom:14px;">Fortsett automatisk</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <label class="field-label" style="margin:0;" for="muteToggle">Demp automatiske varsler</label>
+            <label class="toggle">
+              <input type="checkbox" id="muteToggle">
+              <span class="track"></span>
+              <span class="knob"></span>
+            </label>
+          </div>
+          <div class="pin-change-row">
+            <label class="field-label" style="margin:0;" for="pinChangeInput">PIN-kode</label>
+            <input class="pin-input" id="pinChangeInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="Ny PIN-kode">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- constants ---------------- */
+  var DAY_KEYS = ["mon","tue","wed","thu","fri"];
+  var DAY_LABELS = {mon:"Mandag",tue:"Tirsdag",wed:"Onsdag",thu:"Torsdag",fri:"Fredag"};
+  var JS_DAY_TO_KEY = {1:"mon",2:"tue",3:"wed",4:"thu",5:"fri"};
+
+  var PALETTE = [
+    {color:"#D94F3B", ink:"#FFFFFF", name:"Korall"},
+    {color:"#2467B0", ink:"#FFFFFF", name:"Blå"},
+    {color:"#F2B02C", ink:"#2B2521", name:"Gul"},
+    {color:"#3E8E5B", ink:"#FFFFFF", name:"Grønn"},
+    {color:"#7C4FA0", ink:"#FFFFFF", name:"Lilla"},
+    {color:"#EB7B33", ink:"#FFFFFF", name:"Oransje"},
+    {color:"#1E8A93", ink:"#FFFFFF", name:"Turkis"},
+    {color:"#B23A72", ink:"#FFFFFF", name:"Magenta"}
+  ];
+  var SHAPES = ["circle","square","hexagon","octagon"];
+
+  var ICONS = {
+    book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>',
+    calculator:'<rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="11" x2="8" y2="11.01"></line><line x1="12" y1="11" x2="12" y2="11.01"></line><line x1="16" y1="11" x2="16" y2="11.01"></line><line x1="8" y1="15" x2="8" y2="15.01"></line><line x1="12" y1="15" x2="12" y2="15.01"></line><line x1="16" y1="15" x2="16" y2="15.01"></line><line x1="8" y1="19" x2="16" y2="19"></line>',
+    globe:'<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>',
+    flask:'<path d="M9 2v6.5L4 19a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-5-10.5V2"></path><line x1="8" y1="2" x2="16" y2="2"></line><line x1="8.5" y1="14" x2="15.5" y2="14"></line>',
+    palette:'<path d="M12 2a10 10 0 1 0 0 20c1.4 0 2-1 2-2 0-.6-.3-1.1-.6-1.5-.3-.4-.6-.9-.6-1.5 0-1 .8-2 2-2h2c2.2 0 4-1.8 4-4C21 6 17 2 12 2z"></path><circle cx="7" cy="12" r="1"></circle><circle cx="9" cy="8" r="1"></circle><circle cx="14" cy="7" r="1"></circle><circle cx="17" cy="11" r="1"></circle>',
+    ball:'<circle cx="12" cy="12" r="10"></circle><path d="M12 2v20M2 12h20M4.5 4.5l15 15M19.5 4.5l-15 15"></path>',
+    music:'<path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>',
+    food:'<path d="M3 2v7a4 4 0 0 0 4 4v9"></path><path d="M7 2v13"></path><path d="M11 2v13"></path><path d="M21 2c-3 0-5 3-5 7 0 3 1.5 4.5 3 5v9"></path>',
+    leaf:'<path d="M11 20A7 7 0 0 1 4 13c0-6 8-11 8-11s8 5 8 11a7 7 0 0 1-9 6.7"></path><path d="M4 13c4 0 8-4 8-11"></path>',
+    puzzle:'<path d="M4 7a2 2 0 0 1 2-2h2.5a1.5 1.5 0 0 0 0-3H8a1 1 0 0 0-1 1v.5M4 7v3.5A1.5 1.5 0 0 0 5.5 12H6a2 2 0 0 1 0 4h-.5A1.5 1.5 0 0 0 4 17.5V21a1 1 0 0 0 1 1h3.5A1.5 1.5 0 0 0 10 20.5V20a2 2 0 0 1 4 0v.5a1.5 1.5 0 0 0 1.5 1.5H19a1 1 0 0 0 1-1v-3.5a1.5 1.5 0 0 0-1.5-1.5H18a2 2 0 0 1 0-4h.5A1.5 1.5 0 0 0 20 10.5V7a1 1 0 0 0-1-1h-3.5A1.5 1.5 0 0 1 14 4.5V4a2 2 0 0 0-4 0v.5A1.5 1.5 0 0 1 8.5 6H8"></path>',
+    star:'<polygon points="12 2 15 9 22 9.5 16.5 14.5 18.5 22 12 17.8 5.5 22 7.5 14.5 2 9.5 9 9"></polygon>',
+    pencil:'<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>',
+    clock:'<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+    check:'<circle cx="12" cy="12" r="10"></circle><polyline points="8 12.5 11 15.5 16 9"></polyline>',
+    moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path>'
+  };
+  var ICON_KEYS = Object.keys(ICONS);
+  function iconSvg(name){ return ICONS[name] || ICONS.star; }
+
+  var STATE_LOOK = {
+    wait:{fill:"var(--wait-fill)", ink:"var(--wait-ink)", icon:"clock"},
+    done:{fill:"var(--done-fill)", ink:"var(--done-ink)", icon:"check"},
+    off:{fill:"var(--off-fill)", ink:"var(--off-ink)", icon:"moon"}
+  };
+
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  function hhmm(d){ return pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function timeToMinutes(t){ var p=t.split(":"); return (+p[0])*60 + (+p[1]); }
+  function minutesToClock(m){ m=((m%1440)+1440)%1440; return pad(Math.floor(m/60))+":"+pad(m%60); }
+  function todayKey(){ return JS_DAY_TO_KEY[new Date().getDay()] || null; }
+  function uid(){ return Math.random().toString(36).slice(2,9); }
+
+  function defaultPeriod(prevEnd, idx){
+    var start = prevEnd != null ? prevEnd : 8*60+30;
+    var end = start + 45;
+    var pal = PALETTE[idx % PALETTE.length];
+    return {id:uid(), start:minutesToClock(start), end:minutesToClock(end), subject:"", color:pal.color, shape:SHAPES[idx % SHAPES.length], icon:ICON_KEYS[idx % ICON_KEYS.length]};
+  }
+
+  function seedDay(list){
+    var m = 8*60+30, out=[];
+    for (var i=0;i<list.length;i++){
+      var dur = list[i][3] || 45;
+      var pal = PALETTE[list[i][2]];
+      out.push({id:uid(), start:minutesToClock(m), end:minutesToClock(m+dur), subject:list[i][0], color:pal.color, shape:list[i][1], icon:list[i][4]});
+      m += dur;
+    }
+    return out;
+  }
+
+  /* ---------------- store (single-device localStorage) ---------------- */
+  function localGet(path){
+    try { var raw = localStorage.getItem("dagenmin:"+path); return raw ? JSON.parse(raw) : null; } catch(e){ return null; }
+  }
+  function localSet(path, data){
+    try { localStorage.setItem("dagenmin:"+path, JSON.stringify(data)); } catch(e){}
+    window.dispatchEvent(new CustomEvent("dagenmin-local", {detail:{path:path, data:data}}));
+  }
+
+  var docCache = {};
+  function doc(path){
+    if (docCache[path]) return docCache[path];
+    var d = {
+      get: function(){ return Promise.resolve(localGet(path)); },
+      set: function(data){ localSet(path, data); return Promise.resolve(); },
+      update: function(data){
+        var cur = localGet(path) || {};
+        var merged = Object.assign({}, cur, data);
+        localSet(path, merged);
+        return Promise.resolve();
+      },
+      subscribe: function(cb){
+        cb(localGet(path));
+        function onLocal(e){ if (e.detail.path === path) cb(e.detail.data); }
+        function onStorage(e){ if (e.key === "dagenmin:"+path) cb(localGet(path)); }
+        window.addEventListener("dagenmin-local", onLocal);
+        window.addEventListener("storage", onStorage);
+        return function(){
+          window.removeEventListener("dagenmin-local", onLocal);
+          window.removeEventListener("storage", onStorage);
+        };
+      }
+    };
+    docCache[path] = d;
+    return d;
+  }
+
+  function getPin(){
+    try { return localStorage.getItem("dagenmin:pin") || "1234"; } catch(e){ return "1234"; }
+  }
+  function setPin(p){
+    try { localStorage.setItem("dagenmin:pin", p); } catch(e){}
+  }
+
+  /* ---------------- shared reactive state ---------------- */
+  var live = {
+    timetable: {},   // dayKey -> {periods:[...]}
+    state: {mode:"auto", manualIndex:null, muted:false, studentName:""},
+    alerts: {items:[]}
+  };
+  var listeners = [];
+  function onLiveChange(fn){ listeners.push(fn); }
+  function emitChange(){ listeners.forEach(function(fn){ fn(); }); }
+
+  function subscribeAll(){
+    DAY_KEYS.forEach(function(k){
+      doc("timetable/"+k).subscribe(function(data){
+        live.timetable[k] = (data && data.periods) ? data : {periods:[]};
+        emitChange();
+      });
+    });
+    doc("state/control").subscribe(function(data){
+      live.state = Object.assign({mode:"auto", manualIndex:null, muted:false, studentName:""}, data || {});
+      emitChange();
+    });
+    doc("alerts/config").subscribe(function(data){
+      live.alerts = (data && data.items) ? data : {items:[]};
+      emitChange();
+    });
+  }
+
+  /* ---------------- display-state computation ---------------- */
+  function periodsSorted(dayKey){
+    var t = live.timetable[dayKey];
+    var arr = (t && t.periods) ? t.periods.slice() : [];
+    arr.sort(function(a,b){ return timeToMinutes(a.start) - timeToMinutes(b.start); });
+    return arr;
+  }
+
+  function computeAutoIndex(periods, nowMin){
+    for (var i=0;i<periods.length;i++){
+      if (nowMin >= timeToMinutes(periods[i].start) && nowMin < timeToMinutes(periods[i].end)) return i;
+    }
+    for (var j=0;j<periods.length;j++){
+      if (nowMin < timeToMinutes(periods[j].start)) return -1 - j; // waiting before periods[j]; encode as negative
+    }
+    return periods.length; // day done
+  }
+
+  function displayState(now){
+    var dayKey = todayKey();
+    now = now || new Date();
+    var nowMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60;
+
+    if (!dayKey){
+      return {kind:"off"};
+    }
+    var periods = periodsSorted(dayKey);
+    if (!periods.length){
+      return {kind:"off"};
+    }
+
+    var idx;
+    if (live.state.mode === "manual" && live.state.manualIndex != null){
+      idx = live.state.manualIndex;
+      if (idx < 0) return {kind:"wait", next: periods[0], countdownMin: null};
+      if (idx >= periods.length) return {kind:"done"};
+      return {kind:"period", period: periods[idx], index: idx, progress: null};
+    }
+
+    var auto = computeAutoIndex(periods, nowMin);
+    if (auto >= 0 && auto < periods.length){
+      var p = periods[auto];
+      var s = timeToMinutes(p.start), e = timeToMinutes(p.end);
+      var progress = Math.min(1, Math.max(0, (nowMin - s) / (e - s)));
+      return {kind:"period", period:p, index:auto, progress:progress};
+    }
+    if (auto === periods.length){
+      return {kind:"done"};
+    }
+    var waitIdx = -1 - auto;
+    var nextP = periods[waitIdx];
+    var mins = Math.max(0, Math.ceil(timeToMinutes(nextP.start) - nowMin));
+    return {kind:"wait", next: nextP, countdownMin: mins};
+  }
+
+  /* ---------------- speech ---------------- */
+  var voicesCache = null;
+  function pickVoice(){
+    if (!window.speechSynthesis) return null;
+    var voices = window.speechSynthesis.getVoices();
+    if (voices && voices.length) voicesCache = voices;
+    if (!voicesCache) return null;
+    var nb = voicesCache.filter(function(v){ return /^nb|^no/i.test(v.lang); });
+    return nb[0] || null;
+  }
+  if (window.speechSynthesis){
+    window.speechSynthesis.onvoiceschanged = function(){ voicesCache = window.speechSynthesis.getVoices(); };
+  }
+  function speak(text){
+    if (!window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = "nb-NO";
+      var v = pickVoice();
+      if (v) u.voice = v;
+      u.rate = 0.98;
+      window.speechSynthesis.speak(u);
+    } catch(e){}
+  }
+
+  function chime(){
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      var ctx = new Ctx();
+      [660, 880].forEach(function(freq, i){
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = freq;
+        o.connect(g); g.connect(ctx.destination);
+        var t0 = ctx.currentTime + i*0.16;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.22, t0+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0+0.35);
+        o.start(t0); o.stop(t0+0.4);
+      });
+      setTimeout(function(){ ctx.close(); }, 900);
+    } catch(e){}
+  }
+
+  function speakForState(ds){
+    var name = live.state.studentName ? (", " + live.state.studentName) : "";
+    if (ds.kind === "period"){
+      speak("Nå er det " + ds.period.subject + ".");
+    } else if (ds.kind === "wait"){
+      if (ds.next) speak("Det er pause. Neste fag er " + ds.next.subject + " klokken " + ds.next.start + ".");
+      else speak("Det er pause.");
+    } else if (ds.kind === "done"){
+      speak("Skoledagen er ferdig. Ha en fin dag" + name + "!");
+    } else if (ds.kind === "off"){
+      speak("Det er ingen skole i dag.");
+    }
+  }
+
+  /* ---------------- alerts firing (student device only) ---------------- */
+  var firedTodayKey = null, firedToday = [];
+  function loadFiredToday(){
+    var dateStr = new Date().toDateString();
+    if (firedTodayKey !== dateStr){
+      firedTodayKey = dateStr;
+      try { firedToday = JSON.parse(localStorage.getItem("dagenmin:fired:"+dateStr) || "[]"); } catch(e){ firedToday = []; }
+    }
+  }
+  function markFired(id){
+    loadFiredToday();
+    firedToday.push(id);
+    try { localStorage.setItem("dagenmin:fired:"+firedTodayKey, JSON.stringify(firedToday)); } catch(e){}
+  }
+  function checkAlerts(){
+    if (currentMode !== "student") return;
+    if (live.state.muted) return;
+    loadFiredToday();
+    var now = hhmm(new Date());
+    (live.alerts.items || []).forEach(function(a){
+      if (!a.enabled) return;
+      if (a.time === now && firedToday.indexOf(a.id) === -1){
+        markFired(a.id);
+        chime();
+        setTimeout(function(){ speak(a.message); }, 500);
+      }
+    });
+  }
+
+  /* ---------------- rendering: stage (shared by student + mini preview) ---------------- */
+  var STAGE_IDS = {
+    badge: {icon:"badgeIcon", label:"badgeLabel", sub:"badgeSub", ring:"ringProgress", caption:"stageCaption"},
+    mini: {icon:"miniBadgeIcon", label:"miniBadgeLabel", sub:"miniBadgeSub", ring:"miniRingProgress", caption:"miniCaption"}
+  };
+  function renderStage(prefix, ds){
+    var ids = STAGE_IDS[prefix];
+    var iconEl = document.getElementById(ids.icon);
+    var labelEl = document.getElementById(ids.label);
+    var subEl = document.getElementById(ids.sub);
+    var ring = document.getElementById(ids.ring);
+    var captionEl = document.getElementById(ids.caption);
+    var badgeEl = prefix === "badge" ? document.getElementById("badgeFrame").querySelector(".badge") : document.querySelector("#miniFrame .badge");
+
+    var fill, ink, shape, iconName, label, sub, caption, progress;
+
+    if (ds.kind === "period"){
+      fill = ds.period.color; ink = null; shape = ds.period.shape || "circle"; iconName = ds.period.icon || "star";
+      label = ds.period.subject || "Time"; sub = ""; caption = "";
+      progress = ds.progress;
+      var pal = PALETTE.find(function(p){ return p.color.toLowerCase() === (fill||"").toLowerCase(); });
+      ink = pal ? pal.ink : "#FFFFFF";
+    } else if (ds.kind === "wait"){
+      fill = STATE_LOOK.wait.fill; ink = STATE_LOOK.wait.ink; shape = "circle"; iconName = STATE_LOOK.wait.icon;
+      label = "Pause"; sub = ds.next ? ("Neste: " + ds.next.subject + " kl. " + ds.next.start) : "";
+      caption = ""; progress = null;
+    } else if (ds.kind === "done"){
+      fill = STATE_LOOK.done.fill; ink = STATE_LOOK.done.ink; shape = "circle"; iconName = STATE_LOOK.done.icon;
+      label = "Ferdig for i dag!"; sub = "Ha en fin dag"; caption = ""; progress = 1;
+    } else {
+      fill = STATE_LOOK.off.fill; ink = STATE_LOOK.off.ink; shape = "circle"; iconName = STATE_LOOK.off.icon;
+      label = "Ingen skole i dag"; sub = ""; caption = ""; progress = null;
+    }
+
+    if (badgeEl){
+      badgeEl.className = "badge shape-" + shape;
+      if (prefix === "mini") badgeEl.style.cursor = "default";
+      badgeEl.style.background = fill;
+      badgeEl.style.color = ink;
+    }
+    if (iconEl) iconEl.innerHTML = iconSvg(iconName);
+    if (labelEl) labelEl.textContent = label;
+    if (subEl) subEl.textContent = sub;
+    if (captionEl) captionEl.textContent = caption;
+
+    if (ring){
+      var C = 2 * Math.PI * 46;
+      ring.setAttribute("stroke-dasharray", C.toFixed(1));
+      if (progress == null){
+        ring.style.opacity = "0";
+      } else {
+        ring.style.opacity = "1";
+        ring.setAttribute("stroke", fill);
+        ring.setAttribute("stroke-dashoffset", (C * (1 - progress)).toFixed(1));
+      }
+    }
+  }
+
+  var lastKindSpoken = null;
+  function tick(){
+    var now = new Date();
+    var clockEl = document.getElementById("stageClock");
+    if (clockEl) clockEl.textContent = hhmm(now);
+    var ds = displayState(now);
+    renderStage("badge", ds);
+    renderStage("mini", ds);
+    checkAlerts();
+  }
+
+  /* ---------------- student interactions ---------------- */
+  document.getElementById("badgeBtn").addEventListener("click", function(){
+    speakForState(displayState(new Date()));
+  });
+
+  var gearModal = document.getElementById("gearModal");
+  var pinInput = document.getElementById("pinInput");
+  var pinError = document.getElementById("pinError");
+  function openPinModal(){
+    pinInput.value = "";
+    pinError.textContent = "";
+    gearModal.hidden = false;
+    setTimeout(function(){ pinInput.focus(); }, 50);
+  }
+  function tryUnlock(){
+    if (pinInput.value === getPin()){
+      gearModal.hidden = true;
+      setMode("teacher");
+    } else {
+      pinError.textContent = "Feil kode, prøv igjen.";
+      pinInput.value = "";
+      pinInput.focus();
+    }
+  }
+  document.getElementById("gearBtn").addEventListener("click", openPinModal);
+  document.getElementById("gearCancel").addEventListener("click", function(){ gearModal.hidden = true; });
+  document.getElementById("gearConfirm").addEventListener("click", tryUnlock);
+  pinInput.addEventListener("keydown", function(e){ if (e.key === "Enter") tryUnlock(); });
+  document.getElementById("toStudentBtn").addEventListener("click", function(){ setMode("student"); });
+
+  /* ---------------- mode switching ---------------- */
+  var currentMode = "student";
+  function setMode(mode){
+    currentMode = mode;
+    try { localStorage.setItem("dagenmin:mode", mode); } catch(e){}
+    document.getElementById("studentView").hidden = mode !== "student";
+    document.getElementById("teacherView").hidden = mode !== "teacher";
+    if (mode === "teacher"){
+      renderPeriodEditor();
+      renderAlertEditor();
+      renderModeBanner();
+    }
+  }
+
+  /* ---------------- teacher: student name ---------------- */
+  var nameInput = document.getElementById("studentNameInput");
+  var nameDebounce;
+  nameInput.addEventListener("input", function(){
+    document.getElementById("stageStudentName").textContent = nameInput.value ? nameInput.value : "";
+    clearTimeout(nameDebounce);
+    nameDebounce = setTimeout(function(){
+      doc("state/control").update({studentName: nameInput.value});
+    }, 400);
+  });
+
+  /* ---------------- teacher: day tabs + period editor ---------------- */
+  var activeDay = todayKey() || "mon";
+  var tabsEl = document.getElementById("dayTabs");
+  DAY_KEYS.forEach(function(k){
+    var b = document.createElement("button");
+    b.className = "day-tab" + (k === activeDay ? " active" : "");
+    b.textContent = DAY_LABELS[k];
+    b.dataset.day = k;
+    b.addEventListener("click", function(){
+      activeDay = k;
+      Array.prototype.forEach.call(tabsEl.children, function(el){ el.classList.toggle("active", el.dataset.day === k); });
+      renderPeriodEditor();
+    });
+    tabsEl.appendChild(b);
+  });
+
+  var periodListEl = document.getElementById("periodList");
+  var periodSaveTimers = {};
+
+  function savePeriods(dayKey){
+    clearTimeout(periodSaveTimers[dayKey]);
+    periodSaveTimers[dayKey] = setTimeout(function(){
+      doc("timetable/"+dayKey).set({periods: live.timetable[dayKey].periods});
+    }, 350);
+  }
+
+  function renderPeriodEditor(){
+    var periods = periodsSorted(activeDay);
+    periodListEl.innerHTML = "";
+    if (!periods.length){
+      var empty = document.createElement("p");
+      empty.className = "panel-desc";
+      empty.textContent = "Ingen timer lagt til for " + DAY_LABELS[activeDay].toLowerCase() + " ennå.";
+      periodListEl.appendChild(empty);
+    }
+    periods.forEach(function(p){
+      var row = document.createElement("div");
+      row.className = "period-row";
+
+      var startInp = document.createElement("input");
+      startInp.type = "time"; startInp.className = "field"; startInp.value = p.start;
+      var endInp = document.createElement("input");
+      endInp.type = "time"; endInp.className = "field"; endInp.value = p.end;
+
+      var subjInp = document.createElement("input");
+      subjInp.type = "text"; subjInp.className = "field subject"; subjInp.placeholder = "Fag (f.eks. Matte)"; subjInp.value = p.subject || "";
+
+      var swatchRow = document.createElement("div");
+      swatchRow.className = "swatch-row";
+      PALETTE.forEach(function(pal){
+        var sw = document.createElement("button");
+        sw.className = "swatch-btn" + (pal.color === p.color ? " selected" : "");
+        sw.style.background = pal.color;
+        sw.title = pal.name;
+        sw.type = "button";
+        sw.addEventListener("click", function(){ mutatePeriod(p.id, {color: pal.color}); });
+        swatchRow.appendChild(sw);
+      });
+
+      var shapePick = document.createElement("div");
+      shapePick.className = "shape-pick";
+      SHAPES.forEach(function(sh){
+        var sb = document.createElement("button");
+        sb.type = "button";
+        sb.className = "sp-" + sh + (p.shape === sh ? " selected" : "");
+        sb.title = sh;
+        sb.addEventListener("click", function(){ mutatePeriod(p.id, {shape: sh}); });
+        shapePick.appendChild(sb);
+      });
+
+      var iconSel = document.createElement("select");
+      iconSel.className = "field icon-select";
+      ICON_KEYS.forEach(function(k){
+        var o = document.createElement("option");
+        o.value = k; o.textContent = k; if (k === p.icon) o.selected = true;
+        iconSel.appendChild(o);
+      });
+      iconSel.addEventListener("change", function(){ mutatePeriod(p.id, {icon: iconSel.value}); });
+
+      var del = document.createElement("button");
+      del.className = "row-del"; del.type = "button"; del.innerHTML = "✕"; del.title = "Slett time";
+      del.addEventListener("click", function(){
+        live.timetable[activeDay].periods = live.timetable[activeDay].periods.filter(function(x){ return x.id !== p.id; });
+        savePeriods(activeDay);
+        renderPeriodEditor();
+      });
+
+      startInp.addEventListener("change", function(){ mutatePeriod(p.id, {start: startInp.value}); });
+      endInp.addEventListener("change", function(){ mutatePeriod(p.id, {end: endInp.value}); });
+      subjInp.addEventListener("input", function(){ mutatePeriod(p.id, {subject: subjInp.value}, true); });
+
+      row.appendChild(startInp);
+      row.appendChild(endInp);
+      row.appendChild(subjInp);
+      row.appendChild(swatchRow);
+      row.appendChild(shapePick);
+      row.appendChild(iconSel);
+      row.appendChild(del);
+      periodListEl.appendChild(row);
+    });
+  }
+
+  function mutatePeriod(id, patch, skipRerender){
+    var arr = live.timetable[activeDay].periods;
+    var idx = arr.findIndex(function(x){ return x.id === id; });
+    if (idx === -1) return;
+    arr[idx] = Object.assign({}, arr[idx], patch);
+    savePeriods(activeDay);
+    if (!skipRerender) renderPeriodEditor();
+    else {
+      Object.keys(STATE_LOOK); // no-op to keep linter calm about unused check pattern
+    }
+  }
+
+  document.getElementById("addPeriodBtn").addEventListener("click", function(){
+    var arr = live.timetable[activeDay].periods;
+    var lastEnd = arr.length ? timeToMinutes(arr[arr.length-1].end) : null;
+    arr.push(defaultPeriod(lastEnd, arr.length));
+    savePeriods(activeDay);
+    renderPeriodEditor();
+  });
+
+  /* ---------------- teacher: alerts editor ---------------- */
+  var alertListEl = document.getElementById("alertList");
+  var alertSaveTimer;
+  function saveAlerts(){
+    clearTimeout(alertSaveTimer);
+    alertSaveTimer = setTimeout(function(){
+      doc("alerts/config").set({items: live.alerts.items});
+    }, 350);
+  }
+  function renderAlertEditor(){
+    alertListEl.innerHTML = "";
+    var items = live.alerts.items || [];
+    if (!items.length){
+      var empty = document.createElement("p");
+      empty.className = "panel-desc";
+      empty.textContent = "Ingen varsler lagt til.";
+      alertListEl.appendChild(empty);
+    }
+    items.forEach(function(a){
+      var row = document.createElement("div");
+      row.className = "alert-row";
+
+      var timeInp = document.createElement("input");
+      timeInp.type = "time"; timeInp.className = "field"; timeInp.value = a.time;
+      timeInp.addEventListener("change", function(){ mutateAlert(a.id, {time: timeInp.value}); });
+
+      var msgInp = document.createElement("input");
+      msgInp.type = "text"; msgInp.className = "field"; msgInp.placeholder = "Hva skal sies høyt?"; msgInp.value = a.message || "";
+      msgInp.addEventListener("input", function(){ mutateAlert(a.id, {message: msgInp.value}, true); });
+
+      var tog = document.createElement("label");
+      tog.className = "toggle";
+      var cb = document.createElement("input");
+      cb.type = "checkbox"; cb.checked = !!a.enabled;
+      cb.addEventListener("change", function(){ mutateAlert(a.id, {enabled: cb.checked}); });
+      tog.appendChild(cb);
+      var track = document.createElement("span"); track.className = "track"; tog.appendChild(track);
+      var knob = document.createElement("span"); knob.className = "knob"; tog.appendChild(knob);
+
+      var del = document.createElement("button");
+      del.className = "row-del"; del.type = "button"; del.innerHTML = "✕";
+      del.addEventListener("click", function(){
+        live.alerts.items = live.alerts.items.filter(function(x){ return x.id !== a.id; });
+        saveAlerts();
+        renderAlertEditor();
+      });
+
+      row.appendChild(timeInp);
+      row.appendChild(msgInp);
+      row.appendChild(tog);
+      row.appendChild(del);
+      alertListEl.appendChild(row);
+    });
+  }
+  function mutateAlert(id, patch, skipRerender){
+    var arr = live.alerts.items;
+    var idx = arr.findIndex(function(x){ return x.id === id; });
+    if (idx === -1) return;
+    arr[idx] = Object.assign({}, arr[idx], patch);
+    saveAlerts();
+    if (!skipRerender) renderAlertEditor();
+  }
+  document.getElementById("addAlertBtn").addEventListener("click", function(){
+    live.alerts.items = live.alerts.items || [];
+    live.alerts.items.push({id: uid(), time: hhmm(new Date()), message: "", enabled: true});
+    saveAlerts();
+    renderAlertEditor();
+  });
+
+  /* ---------------- teacher: manual controls ---------------- */
+  function currentAutoIndexToday(){
+    var periods = periodsSorted(todayKey() || activeDay);
+    var now = new Date();
+    var nowMin = now.getHours()*60 + now.getMinutes();
+    var auto = computeAutoIndex(periods, nowMin);
+    if (auto < 0) return -1;
+    return Math.min(auto, periods.length - 1 >= 0 ? periods.length : 0);
+  }
+  document.getElementById("nextBtn").addEventListener("click", function(){
+    var periods = periodsSorted(todayKey() || activeDay);
+    var base = live.state.mode === "manual" && live.state.manualIndex != null ? live.state.manualIndex : currentAutoIndexToday();
+    var next = Math.min(periods.length, base + 1);
+    doc("state/control").update({mode:"manual", manualIndex: next});
+  });
+  document.getElementById("prevBtn").addEventListener("click", function(){
+    var periods = periodsSorted(todayKey() || activeDay);
+    var base = live.state.mode === "manual" && live.state.manualIndex != null ? live.state.manualIndex : currentAutoIndexToday();
+    var prev = Math.max(-1, base - 1);
+    doc("state/control").update({mode:"manual", manualIndex: prev});
+  });
+  document.getElementById("resumeAutoBtn").addEventListener("click", function(){
+    doc("state/control").update({mode:"auto", manualIndex:null});
+  });
+  document.getElementById("muteToggle").addEventListener("change", function(e){
+    doc("state/control").update({muted: e.target.checked});
+  });
+  document.getElementById("testVoiceBtn").addEventListener("click", function(){
+    speak("Hei! Dette er en test av talen på denne iPaden.");
+  });
+
+  function renderModeBanner(){
+    var banner = document.getElementById("modeBanner");
+    if (live.state.mode === "manual"){
+      banner.textContent = "Manuell styring er på — elevskjermen følger ikke klokken nå.";
+      banner.classList.add("manual");
+    } else {
+      banner.textContent = "Automatisk — følger klokken etter timeplanen.";
+      banner.classList.remove("manual");
+    }
+    document.getElementById("muteToggle").checked = !!live.state.muted;
+    if (document.activeElement !== nameInput){
+      nameInput.value = live.state.studentName || "";
+    }
+    document.getElementById("stageStudentName").textContent = live.state.studentName || "";
+  }
+
+  /* ---------------- teacher: PIN change ---------------- */
+  var pinChangeInput = document.getElementById("pinChangeInput");
+  var pinChangeDebounce;
+  pinChangeInput.addEventListener("input", function(){
+    var v = pinChangeInput.value.replace(/\D/g,"").slice(0,4);
+    if (v !== pinChangeInput.value) pinChangeInput.value = v;
+    clearTimeout(pinChangeDebounce);
+    if (v.length === 4){
+      pinChangeDebounce = setTimeout(function(){ setPin(v); }, 300);
+    }
+  });
+
+  /* ---------------- boot ---------------- */
+  function boot(){
+    onLiveChange(function(){
+      if (currentMode === "teacher"){
+        renderPeriodEditor();
+        renderAlertEditor();
+        renderModeBanner();
+      }
+    });
+    subscribeAll();
+
+    if (document.activeElement !== pinChangeInput) pinChangeInput.value = getPin();
+
+    var savedMode = null;
+    try { savedMode = localStorage.getItem("dagenmin:mode"); } catch(e){}
+    setMode(savedMode === "teacher" ? "teacher" : "student");
+
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  boot();
+})();
+</script>
