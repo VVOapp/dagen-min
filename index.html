@@ -112,6 +112,9 @@
   .badge-frame svg.ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);}
   .ring-track{fill:none;stroke:var(--line);stroke-width:6;}
   .ring-progress{fill:none;stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .4s linear;}
+  .ring .ring-el-square{display:none;}
+  .ring.shape-square .ring-el-circle{display:none;}
+  .ring.shape-square .ring-el-square{display:inline;}
   .badge{
     position:absolute;
     inset:6%;
@@ -131,8 +134,6 @@
   }
   .shape-circle{border-radius:50%;}
   .shape-square{border-radius:18%;}
-  .shape-triangle{clip-path:polygon(50% 14%,96% 94%,4% 94%);align-items:flex-end;padding-bottom:6%;}
-  .shape-star{clip-path:polygon(50% 2%,67.63% 25.73%,95.65% 35.17%,78.53% 59.27%,78.21% 88.83%,50% 80%,21.79% 88.83%,21.47% 59.27%,4.35% 35.17%,32.37% 25.73%);}
   .badge-inner{
     display:flex;
     flex-direction:column;
@@ -143,8 +144,6 @@
     padding:6%;
     width:60%;
   }
-  .shape-triangle .badge-inner{width:58%;}
-  .shape-star .badge-inner{width:62%;}
   .badge-icon{width:clamp(40px,11vmin,84px);height:clamp(40px,11vmin,84px);}
   .badge-label{
     font-family:"Baloo 2",system-ui,sans-serif;
@@ -154,10 +153,6 @@
     overflow-wrap:anywhere;
     word-break:break-word;
   }
-  .shape-triangle .badge-label,
-  .shape-star .badge-label{font-size:clamp(14px,3.4vmin,30px);}
-  .shape-triangle .badge-icon,
-  .shape-star .badge-icon{width:clamp(24px,6vmin,46px);height:clamp(24px,6vmin,46px);}
   .badge-sub{
     font-size:clamp(13px,2.2vmin,20px);
     font-weight:600;
@@ -296,13 +291,20 @@
   .swatch-row{display:flex;gap:5px;flex-wrap:wrap;}
   .shape-pick{display:flex;gap:5px;}
   .shape-pick button{
+    position:relative;
     width:26px;height:26px;border:1px solid var(--line);background:var(--paper);cursor:pointer;padding:0;
   }
-  .shape-pick button.selected{border-color:var(--accent);border-width:2px;}
+  .shape-pick button.selected::before{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    background:var(--accent);
+    z-index:-1;
+  }
   .shape-pick button.sp-circle{border-radius:50%;}
   .shape-pick button.sp-square{border-radius:20%;}
-  .shape-pick button.sp-triangle{clip-path:polygon(50% 14%,96% 94%,4% 94%);}
-  .shape-pick button.sp-star{clip-path:polygon(50% 2%,67.63% 25.73%,95.65% 35.17%,78.53% 59.27%,78.21% 88.83%,50% 80%,21.79% 88.83%,21.47% 59.27%,4.35% 35.17%,32.37% 25.73%);}
+  .shape-pick button.sp-circle.selected::before{border-radius:50%;}
+  .shape-pick button.sp-square.selected::before{border-radius:20%;}
   .icon-select{font-size:13px;}
   .row-del{
     border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:18px;line-height:1;padding:4px;
@@ -373,10 +375,11 @@
     <div class="stage-student-name" id="stageStudentName"></div>
 
     <div class="badge-frame" id="badgeFrame">
-      <svg class="ring" viewBox="0 0 100 100">
-        <circle class="ring-track" cx="50" cy="50" r="46"></circle>
-        <circle class="ring-progress" id="ringProgress" cx="50" cy="50" r="46"
-          stroke="var(--accent)" stroke-dasharray="289" stroke-dashoffset="289"></circle>
+      <svg class="ring" id="ringSvg" viewBox="0 0 100 100">
+        <circle class="ring-track ring-el-circle" cx="50" cy="50" r="46"></circle>
+        <rect class="ring-track ring-el-square" x="6" y="6" width="88" height="88" rx="16"></rect>
+        <circle class="ring-progress ring-el-circle" id="ringProgressCircle" cx="50" cy="50" r="46"></circle>
+        <rect class="ring-progress ring-el-square" id="ringProgressSquare" x="6" y="6" width="88" height="88" rx="16"></rect>
       </svg>
       <button class="badge" id="badgeBtn" aria-label="Trykk for å høre hva som skjer nå">
         <div class="badge-inner">
@@ -454,9 +457,11 @@
           <p class="panel-desc">Slik ser det ut på iPaden akkurat nå.</p>
           <div class="mini-frame" id="miniFrame">
             <div class="badge-frame">
-              <svg class="ring" viewBox="0 0 100 100">
-                <circle class="ring-track" cx="50" cy="50" r="46"></circle>
-                <circle class="ring-progress" id="miniRingProgress" cx="50" cy="50" r="46" stroke="var(--accent)" stroke-dasharray="289" stroke-dashoffset="289"></circle>
+              <svg class="ring" id="miniRingSvg" viewBox="0 0 100 100">
+                <circle class="ring-track ring-el-circle" cx="50" cy="50" r="46"></circle>
+                <rect class="ring-track ring-el-square" x="6" y="6" width="88" height="88" rx="16"></rect>
+                <circle class="ring-progress ring-el-circle" id="miniRingProgressCircle" cx="50" cy="50" r="46"></circle>
+                <rect class="ring-progress ring-el-square" id="miniRingProgressSquare" x="6" y="6" width="88" height="88" rx="16"></rect>
               </svg>
               <div class="badge" style="cursor:default;">
                 <div class="badge-inner">
@@ -515,7 +520,7 @@
     {color:"#1E8A93", ink:"#FFFFFF", name:"Turkis"},
     {color:"#B23A72", ink:"#FFFFFF", name:"Magenta"}
   ];
-  var SHAPES = ["circle","square","triangle","star"];
+  var SHAPES = ["circle","square"];
 
   var ICONS = {
     book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>',
@@ -785,22 +790,31 @@
 
   /* ---------------- rendering: stage (shared by student + mini preview) ---------------- */
   var STAGE_IDS = {
-    badge: {icon:"badgeIcon", label:"badgeLabel", sub:"badgeSub", ring:"ringProgress", caption:"stageCaption"},
-    mini: {icon:"miniBadgeIcon", label:"miniBadgeLabel", sub:"miniBadgeSub", ring:"miniRingProgress", caption:"miniCaption"}
+    badge: {icon:"badgeIcon", label:"badgeLabel", sub:"badgeSub", ringSvg:"ringSvg", ringCircle:"ringProgressCircle", ringSquare:"ringProgressSquare", caption:"stageCaption"},
+    mini: {icon:"miniBadgeIcon", label:"miniBadgeLabel", sub:"miniBadgeSub", ringSvg:"miniRingSvg", ringCircle:"miniRingProgressCircle", ringSquare:"miniRingProgressSquare", caption:"miniCaption"}
   };
+  var ringLengthCache = {};
+  function ringTotalLength(el){
+    if (ringLengthCache[el.id] == null) ringLengthCache[el.id] = el.getTotalLength();
+    return ringLengthCache[el.id];
+  }
   function renderStage(prefix, ds){
     var ids = STAGE_IDS[prefix];
     var iconEl = document.getElementById(ids.icon);
     var labelEl = document.getElementById(ids.label);
     var subEl = document.getElementById(ids.sub);
-    var ring = document.getElementById(ids.ring);
+    var ringSvg = document.getElementById(ids.ringSvg);
+    var ringCircle = document.getElementById(ids.ringCircle);
+    var ringSquare = document.getElementById(ids.ringSquare);
     var captionEl = document.getElementById(ids.caption);
     var badgeEl = prefix === "badge" ? document.getElementById("badgeFrame").querySelector(".badge") : document.querySelector("#miniFrame .badge");
 
     var fill, ink, shape, iconName, label, sub, caption, progress;
 
     if (ds.kind === "period"){
-      fill = ds.period.color; ink = null; shape = ds.period.shape || "circle"; iconName = ds.period.icon || "star";
+      fill = ds.period.color; ink = null;
+      shape = ds.period.shape === "square" ? "square" : "circle";
+      iconName = ds.period.icon || "star";
       label = ds.period.subject || "Time"; sub = ""; caption = "";
       progress = ds.progress;
       var pal = PALETTE.find(function(p){ return p.color.toLowerCase() === (fill||"").toLowerCase(); });
@@ -828,27 +842,32 @@
     if (subEl) subEl.textContent = sub;
     if (captionEl) captionEl.textContent = caption;
 
-    if (ring){
-      var C = 2 * Math.PI * 46;
-      ring.setAttribute("stroke-dasharray", C.toFixed(1));
+    if (ringSvg) ringSvg.setAttribute("class", "ring shape-" + shape);
+    [ringCircle, ringSquare].forEach(function(el){
+      if (!el) return;
+      var C = ringTotalLength(el);
+      el.setAttribute("stroke-dasharray", C.toFixed(1));
       if (progress == null){
-        ring.style.opacity = "0";
+        el.style.opacity = "0";
       } else {
-        ring.style.opacity = "1";
-        ring.setAttribute("stroke", RING_COLOR);
-        ring.setAttribute("stroke-dashoffset", (C * (1 - progress)).toFixed(1));
+        el.style.opacity = "1";
+        el.setAttribute("stroke", RING_COLOR);
+        el.setAttribute("stroke-dashoffset", (C * (1 - progress)).toFixed(1));
       }
-    }
+    });
   }
 
-  var lastKindSpoken = null;
+  function refreshStage(){
+    var ds = displayState(new Date());
+    renderStage("badge", ds);
+    renderStage("mini", ds);
+    return ds;
+  }
   function tick(){
     var now = new Date();
     var clockEl = document.getElementById("stageClock");
     if (clockEl) clockEl.textContent = hhmm(now);
-    var ds = displayState(now);
-    renderStage("badge", ds);
-    renderStage("mini", ds);
+    refreshStage();
     checkAlerts();
   }
 
@@ -1158,11 +1177,29 @@
   });
 
   /* ---------------- boot ---------------- */
+  var EDITABLE_TAGS = {INPUT:true, SELECT:true, TEXTAREA:true};
+  function isEditingField(container){
+    var active = document.activeElement;
+    return !!(active && EDITABLE_TAGS[active.tagName] && container.contains(active));
+  }
+  function onListFocusOut(container, rerender){
+    container.addEventListener("focusout", function(e){
+      if (e.target && EDITABLE_TAGS[e.target.tagName]){
+        setTimeout(function(){
+          if (currentMode === "teacher" && !isEditingField(container)) rerender();
+        }, 30);
+      }
+    });
+  }
+  onListFocusOut(periodListEl, renderPeriodEditor);
+  onListFocusOut(alertListEl, renderAlertEditor);
+
   function boot(){
     onLiveChange(function(){
+      refreshStage();
       if (currentMode === "teacher"){
-        renderPeriodEditor();
-        renderAlertEditor();
+        if (!isEditingField(periodListEl)) renderPeriodEditor();
+        if (!isEditingField(alertListEl)) renderAlertEditor();
         renderModeBanner();
       }
     });
