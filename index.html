@@ -131,8 +131,8 @@
   }
   .shape-circle{border-radius:50%;}
   .shape-square{border-radius:18%;}
-  .shape-hexagon{clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0% 50%);}
-  .shape-octagon{clip-path:polygon(30% 2%,70% 2%,98% 30%,98% 70%,70% 98%,30% 98%,2% 70%,2% 30%);}
+  .shape-triangle{clip-path:polygon(50% 14%,96% 94%,4% 94%);align-items:flex-end;padding-bottom:6%;}
+  .shape-star{clip-path:polygon(50% 2%,67.63% 25.73%,95.65% 35.17%,78.53% 59.27%,78.21% 88.83%,50% 80%,21.79% 88.83%,21.47% 59.27%,4.35% 35.17%,32.37% 25.73%);}
   .badge-inner{
     display:flex;
     flex-direction:column;
@@ -143,15 +143,21 @@
     padding:6%;
     width:60%;
   }
-  .shape-hexagon .badge-inner{width:56%;}
-  .shape-octagon .badge-inner{width:54%;}
+  .shape-triangle .badge-inner{width:58%;}
+  .shape-star .badge-inner{width:62%;}
   .badge-icon{width:clamp(40px,11vmin,84px);height:clamp(40px,11vmin,84px);}
   .badge-label{
     font-family:"Baloo 2",system-ui,sans-serif;
     font-weight:800;
     font-size:clamp(24px,5.4vmin,52px);
     line-height:1.05;
+    overflow-wrap:anywhere;
+    word-break:break-word;
   }
+  .shape-triangle .badge-label,
+  .shape-star .badge-label{font-size:clamp(14px,3.4vmin,30px);}
+  .shape-triangle .badge-icon,
+  .shape-star .badge-icon{width:clamp(24px,6vmin,46px);height:clamp(24px,6vmin,46px);}
   .badge-sub{
     font-size:clamp(13px,2.2vmin,20px);
     font-weight:600;
@@ -295,8 +301,8 @@
   .shape-pick button.selected{border-color:var(--accent);border-width:2px;}
   .shape-pick button.sp-circle{border-radius:50%;}
   .shape-pick button.sp-square{border-radius:20%;}
-  .shape-pick button.sp-hexagon{clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0% 50%);}
-  .shape-pick button.sp-octagon{clip-path:polygon(30% 2%,70% 2%,98% 30%,98% 70%,70% 98%,30% 98%,2% 70%,2% 30%);}
+  .shape-pick button.sp-triangle{clip-path:polygon(50% 14%,96% 94%,4% 94%);}
+  .shape-pick button.sp-star{clip-path:polygon(50% 2%,67.63% 25.73%,95.65% 35.17%,78.53% 59.27%,78.21% 88.83%,50% 80%,21.79% 88.83%,21.47% 59.27%,4.35% 35.17%,32.37% 25.73%);}
   .icon-select{font-size:13px;}
   .row-del{
     border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:18px;line-height:1;padding:4px;
@@ -509,7 +515,7 @@
     {color:"#1E8A93", ink:"#FFFFFF", name:"Turkis"},
     {color:"#B23A72", ink:"#FFFFFF", name:"Magenta"}
   ];
-  var SHAPES = ["circle","square","hexagon","octagon"];
+  var SHAPES = ["circle","square","triangle","star"];
 
   var ICONS = {
     book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>',
@@ -530,6 +536,8 @@
   };
   var ICON_KEYS = Object.keys(ICONS);
   function iconSvg(name){ return ICONS[name] || ICONS.star; }
+
+  var RING_COLOR = "#2B2521";
 
   var STATE_LOOK = {
     wait:{fill:"var(--wait-fill)", ink:"var(--wait-ink)", icon:"clock"},
@@ -827,7 +835,7 @@
         ring.style.opacity = "0";
       } else {
         ring.style.opacity = "1";
-        ring.setAttribute("stroke", ink);
+        ring.setAttribute("stroke", RING_COLOR);
         ring.setAttribute("stroke-dashoffset", (C * (1 - progress)).toFixed(1));
       }
     }
