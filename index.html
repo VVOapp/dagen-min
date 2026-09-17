@@ -448,6 +448,25 @@
           <div id="alertList"></div>
           <button class="btn add-row-btn" id="addAlertBtn">+ Legg til varsel</button>
         </div>
+
+        <div class="panel">
+          <h2>Overfør data</h2>
+          <p class="panel-desc">Bruk dette for å flytte timeplanen og innstillingene til en annen versjon av appen – for eksempel når du oppdaterer app-ikonet på iPaden. Trykk «Eksporter», kopier teksten, åpne den andre appen og lim inn under «Importer».</p>
+          <button class="btn" id="exportBtn">Eksporter data</button>
+          <textarea id="exportOutput" class="field" style="width:100%;margin-top:10px;height:70px;display:none;" readonly></textarea>
+          <div id="exportCopyWrap" style="display:none;margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button class="btn" id="copyExportBtn">Kopier til utklippstavle</button>
+            <span id="copyStatus" style="font-size:13px;color:var(--ink-soft);"></span>
+          </div>
+          <div style="margin-top:18px;">
+            <label class="field-label" for="importInput">Importer data</label>
+            <textarea id="importInput" class="field" style="width:100%;height:70px;" placeholder="Lim inn eksportert tekst her"></textarea>
+            <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <button class="btn" id="importBtn">Importer</button>
+              <span id="importStatus" style="font-size:13px;"></span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="th-side">
@@ -1190,6 +1209,74 @@
     if (v.length === 4){
       pinChangeDebounce = setTimeout(function(){ setPin(v); }, 300);
     }
+  });
+
+  /* ---------------- teacher: export / import ---------------- */
+  var EXPORT_DATA_KEYS = ["timetable/mon","timetable/tue","timetable/wed","timetable/thu","timetable/fri","state/control","alerts/config"];
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var out = {};
+    EXPORT_DATA_KEYS.forEach(function(k){
+      var raw = localStorage.getItem("dagenmin:"+k);
+      if (raw) out[k] = JSON.parse(raw);
+    });
+    var pin = localStorage.getItem("dagenmin:pin");
+    if (pin) out.pin = pin;
+    var ta = document.getElementById("exportOutput");
+    ta.value = JSON.stringify(out);
+    ta.style.display = "block";
+    document.getElementById("exportCopyWrap").style.display = "flex";
+    document.getElementById("copyStatus").textContent = "";
+    ta.focus();
+    ta.select();
+  });
+  document.getElementById("copyExportBtn").addEventListener("click", function(){
+    var ta = document.getElementById("exportOutput");
+    var status = document.getElementById("copyStatus");
+    ta.focus();
+    ta.select();
+    var done = false;
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(function(){
+        status.style.color = "var(--accent-strong)";
+        status.textContent = "Kopiert!";
+      }).catch(function(){
+        status.style.color = "var(--danger)";
+        status.textContent = "Kunne ikke kopiere automatisk – teksten er markert, kopier manuelt.";
+      });
+      done = true;
+    }
+    if (!done){
+      try {
+        document.execCommand("copy");
+        status.style.color = "var(--accent-strong)";
+        status.textContent = "Kopiert!";
+      } catch(e){
+        status.style.color = "var(--danger)";
+        status.textContent = "Teksten er markert – kopier manuelt.";
+      }
+    }
+  });
+  document.getElementById("importBtn").addEventListener("click", function(){
+    var status = document.getElementById("importStatus");
+    var raw = document.getElementById("importInput").value.trim();
+    if (!raw){
+      status.style.color = "var(--danger)";
+      status.textContent = "Lim inn tekst først.";
+      return;
+    }
+    var data;
+    try { data = JSON.parse(raw); } catch(e){
+      status.style.color = "var(--danger)";
+      status.textContent = "Ugyldig tekst – sjekk at du limte inn alt.";
+      return;
+    }
+    Object.keys(data).forEach(function(k){
+      if (k === "pin") localStorage.setItem("dagenmin:pin", data.pin);
+      else localStorage.setItem("dagenmin:"+k, JSON.stringify(data[k]));
+    });
+    status.style.color = "var(--accent-strong)";
+    status.textContent = "Importert! Laster på nytt …";
+    setTimeout(function(){ location.reload(); }, 600);
   });
 
   /* ---------------- boot ---------------- */
