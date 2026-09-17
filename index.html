@@ -291,20 +291,11 @@
   .swatch-row{display:flex;gap:5px;flex-wrap:wrap;}
   .shape-pick{display:flex;gap:5px;}
   .shape-pick button{
-    position:relative;
-    width:26px;height:26px;border:1px solid var(--line);background:var(--paper);cursor:pointer;padding:0;
+    width:26px;height:26px;border:2px solid var(--line);background:var(--paper);cursor:pointer;padding:0;
   }
-  .shape-pick button.selected::before{
-    content:"";
-    position:absolute;
-    inset:-3px;
-    background:var(--accent);
-    z-index:-1;
-  }
+  .shape-pick button.selected{border-color:var(--accent);}
   .shape-pick button.sp-circle{border-radius:50%;}
   .shape-pick button.sp-square{border-radius:20%;}
-  .shape-pick button.sp-circle.selected::before{border-radius:50%;}
-  .shape-pick button.sp-square.selected::before{border-radius:20%;}
   .icon-select{font-size:13px;}
   .row-del{
     border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:18px;line-height:1;padding:4px;
@@ -312,8 +303,16 @@
   .row-del:hover{color:var(--danger);}
   .add-row-btn{margin-top:12px;}
 
-  .alert-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);}
+  .alert-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 0;border-bottom:1px solid var(--line);}
   .alert-row:last-child{border-bottom:none;}
+  .alert-row input[type=time]{flex:0 0 auto;width:108px;}
+  .alert-row .field.message{flex:1 1 160px;min-width:120px;}
+  .alert-test-btn{
+    font-family:inherit;font-weight:600;font-size:13px;
+    border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--accent-strong);
+    padding:6px 10px;cursor:pointer;white-space:nowrap;flex:0 0 auto;
+  }
+  .alert-test-btn:hover{background:var(--accent-tint);}
   .toggle{position:relative;width:38px;height:22px;flex-shrink:0;}
   .toggle input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer;margin:0;}
   .toggle .track{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s;}
@@ -537,9 +536,18 @@
     pencil:'<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>',
     clock:'<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
     check:'<circle cx="12" cy="12" r="10"></circle><polyline points="8 12.5 11 15.5 16 9"></polyline>',
-    moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path>'
+    moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path>',
+    taxi:'<rect x="3" y="10" width="18" height="6" rx="2"></rect><path d="M5 10l2-4h10l2 4"></path><circle cx="7.5" cy="18" r="1.5"></circle><circle cx="16.5" cy="18" r="1.5"></circle>',
+    pause:'<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>',
+    toilet:'<rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M6 6h12v3a6 6 0 0 1-3 5.2V19a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4.8A6 6 0 0 1 6 9V6z"></path><path d="M9 20h6l1 2H8z"></path>'
   };
   var ICON_KEYS = Object.keys(ICONS);
+  var ICON_LABELS = {
+    book:"Bok", calculator:"Kalkulator", globe:"Klode", flask:"Kolbe", palette:"Palett",
+    ball:"Ball", music:"Musikknote", food:"Bestikk", leaf:"Blad", puzzle:"Puslespill",
+    star:"Stjerne", pencil:"Blyant", clock:"Klokke", check:"Hake", moon:"Måne",
+    taxi:"Taxi", pause:"Pause", toilet:"Toalett"
+  };
   function iconSvg(name){ return ICONS[name] || ICONS.star; }
 
   var RING_COLOR = "#2B2521";
@@ -991,7 +999,7 @@
         var sb = document.createElement("button");
         sb.type = "button";
         sb.className = "sp-" + sh + (p.shape === sh ? " selected" : "");
-        sb.title = sh;
+        sb.title = sh === "square" ? "Kvadrat" : "Sirkel";
         sb.addEventListener("click", function(){ mutatePeriod(p.id, {shape: sh}); });
         shapePick.appendChild(sb);
       });
@@ -1000,7 +1008,7 @@
       iconSel.className = "field icon-select";
       ICON_KEYS.forEach(function(k){
         var o = document.createElement("option");
-        o.value = k; o.textContent = k; if (k === p.icon) o.selected = true;
+        o.value = k; o.textContent = ICON_LABELS[k] || k; if (k === p.icon) o.selected = true;
         iconSel.appendChild(o);
       });
       iconSel.addEventListener("change", function(){ mutatePeriod(p.id, {icon: iconSel.value}); });
@@ -1072,11 +1080,18 @@
 
       var timeInp = document.createElement("input");
       timeInp.type = "time"; timeInp.className = "field"; timeInp.value = a.time;
-      timeInp.addEventListener("change", function(){ mutateAlert(a.id, {time: timeInp.value}); });
+      timeInp.addEventListener("change", function(){ mutateAlert(a.id, {time: timeInp.value}, true); });
 
       var msgInp = document.createElement("input");
-      msgInp.type = "text"; msgInp.className = "field"; msgInp.placeholder = "Hva skal sies høyt?"; msgInp.value = a.message || "";
+      msgInp.type = "text"; msgInp.className = "field message"; msgInp.placeholder = "Hva skal sies høyt?"; msgInp.value = a.message || "";
       msgInp.addEventListener("input", function(){ mutateAlert(a.id, {message: msgInp.value}, true); });
+
+      var testBtn = document.createElement("button");
+      testBtn.type = "button"; testBtn.className = "alert-test-btn"; testBtn.innerHTML = "▶ Test";
+      testBtn.title = "Hør hvordan varselet høres ut";
+      testBtn.addEventListener("click", function(){
+        speak(msgInp.value || "Ingen melding er skrevet ennå.");
+      });
 
       var tog = document.createElement("label");
       tog.className = "toggle";
@@ -1097,6 +1112,7 @@
 
       row.appendChild(timeInp);
       row.appendChild(msgInp);
+      row.appendChild(testBtn);
       row.appendChild(tog);
       row.appendChild(del);
       alertListEl.appendChild(row);
