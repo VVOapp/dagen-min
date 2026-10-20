@@ -307,12 +307,14 @@
   .alert-row:last-child{border-bottom:none;}
   .alert-row input[type=time]{flex:0 0 auto;width:108px;}
   .alert-row .field.message{flex:1 1 160px;min-width:120px;}
-  .alert-test-btn{
+  .alert-test-btn,
+  .row-insert-btn{
     font-family:inherit;font-weight:600;font-size:13px;
     border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--accent-strong);
     padding:6px 10px;cursor:pointer;white-space:nowrap;flex:0 0 auto;
   }
-  .alert-test-btn:hover{background:var(--accent-tint);}
+  .alert-test-btn:hover,
+  .row-insert-btn:hover{background:var(--accent-tint);}
   .toggle{position:relative;width:38px;height:22px;flex-shrink:0;}
   .toggle input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer;margin:0;}
   .toggle .track{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s;}
@@ -509,6 +511,14 @@
               <span class="knob"></span>
             </label>
           </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;">
+            <label class="field-label" style="margin:0;" for="announceToggle">Si høyt hva som er neste time når den starter</label>
+            <label class="toggle">
+              <input type="checkbox" id="announceToggle">
+              <span class="track"></span>
+              <span class="knob"></span>
+            </label>
+          </div>
           <div class="pin-change-row">
             <label class="field-label" style="margin:0;" for="pinChangeInput">PIN-kode</label>
             <input class="pin-input" id="pinChangeInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="Ny PIN-kode">
@@ -649,7 +659,7 @@
   /* ---------------- shared reactive state ---------------- */
   var live = {
     timetable: {},   // dayKey -> {periods:[...]}
-    state: {mode:"auto", manualIndex:null, muted:false, studentName:""},
+    state: {mode:"auto", manualIndex:null, muted:false, announceChange:false, studentName:""},
     alerts: {items:[]}
   };
   var listeners = [];
@@ -664,7 +674,7 @@
       });
     });
     doc("state/control").subscribe(function(data){
-      live.state = Object.assign({mode:"auto", manualIndex:null, muted:false, studentName:""}, data || {});
+      live.state = Object.assign({mode:"auto", manualIndex:null, muted:false, announceChange:false, studentName:""}, data || {});
       emitChange();
     });
     doc("alerts/config").subscribe(function(data){
@@ -890,13 +900,31 @@
     renderStage("mini", ds);
     return ds;
   }
+  function stageKey(ds){
+    var ref = ds.period || ds.next;
+    return ds.kind + ":" + (ref ? ref.id : "");
+  }
+  var lastStageKey = null;
   function tick(){
     var now = new Date();
     var clockEl = document.getElementById("stageClock");
     if (clockEl) clockEl.textContent = hhmm(now);
-    refreshStage();
+    var ds = refreshStage();
+    var key = stageKey(ds);
+    if (lastStageKey !== null && key !== lastStageKey && currentMode === "student" && live.state.announceChange && !live.state.muted && ds.kind !== "off"){
+      speakForState(ds);
+    }
+    lastStageKey = key;
     checkAlerts();
   }
+
+  // iPad Safari only allows speech after a first touch, so prime it on the first tap anywhere
+  document.addEventListener("pointerdown", function primeSpeech(){
+    document.removeEventListener("pointerdown", primeSpeech);
+    if (window.speechSynthesis){
+      try { window.speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch(e){}
+    }
+  });
 
   /* ---------------- student interactions ---------------- */
   document.getElementById("badgeBtn").addEventListener("click", function(){
@@ -1040,16 +1068,23 @@
         renderPeriodEditor();
       });
 
+      var ins = document.createElement("button");
+      ins.className = "row-insert-btn"; ins.type = "button"; ins.textContent = "+ Sett inn etter";
+      ins.title = "Legg til en ny time rett etter denne";
+      ins.addEventListener("click", function(){ insertPeriodAfter(p); });
+
       startInp.addEventListener("change", function(){ mutatePeriod(p.id, {start: startInp.value}, true); });
       endInp.addEventListener("change", function(){ mutatePeriod(p.id, {end: endInp.value}, true); });
       subjInp.addEventListener("input", function(){ mutatePeriod(p.id, {subject: subjInp.value}, true); });
 
+      row.dataset.id = p.id;
       row.appendChild(startInp);
       row.appendChild(endInp);
       row.appendChild(subjInp);
       row.appendChild(swatchRow);
       row.appendChild(shapePick);
       row.appendChild(iconSel);
+      row.appendChild(ins);
       row.appendChild(del);
       periodListEl.appendChild(row);
     });
@@ -1065,6 +1100,22 @@
     else {
       Object.keys(STATE_LOOK); // no-op to keep linter calm about unused check pattern
     }
+  }
+
+  function insertPeriodAfter(p){
+    var arr = live.timetable[activeDay].periods;
+    var sorted = periodsSorted(activeDay);
+    var next = sorted[sorted.findIndex(function(x){ return x.id === p.id; }) + 1];
+    var start = timeToMinutes(p.end);
+    var gap = next ? timeToMinutes(next.start) - start : 15;
+    var np = defaultPeriod(start, arr.length);
+    np.end = minutesToClock(start + (gap > 0 && gap < 15 ? gap : 15));
+    np.icon = "pause";
+    arr.push(np);
+    savePeriods(activeDay);
+    renderPeriodEditor();
+    var subj = periodListEl.querySelector('[data-id="' + np.id + '"] .field.subject');
+    if (subj) subj.focus();
   }
 
   document.getElementById("addPeriodBtn").addEventListener("click", function(){
@@ -1179,6 +1230,9 @@
   document.getElementById("muteToggle").addEventListener("change", function(e){
     doc("state/control").update({muted: e.target.checked});
   });
+  document.getElementById("announceToggle").addEventListener("change", function(e){
+    doc("state/control").update({announceChange: e.target.checked});
+  });
   document.getElementById("testVoiceBtn").addEventListener("click", function(){
     speak("Hei! Dette er en test av talen på denne iPaden.");
   });
@@ -1193,6 +1247,7 @@
       banner.classList.remove("manual");
     }
     document.getElementById("muteToggle").checked = !!live.state.muted;
+    document.getElementById("announceToggle").checked = !!live.state.announceChange;
     if (document.activeElement !== nameInput){
       nameInput.value = live.state.studentName || "";
     }
