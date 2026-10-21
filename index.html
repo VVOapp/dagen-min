@@ -158,6 +158,21 @@
     font-weight:600;
     opacity:.92;
   }
+  .stage-row{display:flex;align-items:center;justify-content:center;gap:clamp(16px,4vmin,40px);flex-wrap:wrap;}
+  .next-col{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .next-col.is-empty{visibility:hidden;}
+  .next-caption{font-size:clamp(12px,2vmin,18px);font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.6;}
+  .next-badge{
+    width:clamp(96px,18vmin,160px);aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    border:none;padding:0;cursor:pointer;transition:transform .15s ease;
+  }
+  .next-badge:active{transform:scale(.96);}
+  .next-badge .badge-inner{width:82%;padding:0;gap:4px;}
+  .next-badge .badge-icon{width:clamp(24px,5vmin,44px);height:clamp(24px,5vmin,44px);}
+  .next-badge .badge-label{font-size:clamp(12px,2.4vmin,22px);}
+  .next-time{font-size:clamp(12px,2vmin,18px);font-weight:600;opacity:.7;min-height:1.2em;}
+  @media (prefers-reduced-motion: reduce){ .next-badge{transition:none;} .next-badge:active{transform:none;} }
   .stage-caption{
     margin-top:clamp(14px,3vmin,28px);
     font-size:clamp(14px,2vmin,19px);
@@ -375,6 +390,7 @@
     <div class="stage-clock tabular" id="stageClock">--:--</div>
     <div class="stage-student-name" id="stageStudentName"></div>
 
+    <div class="stage-row">
     <div class="badge-frame" id="badgeFrame">
       <svg class="ring" id="ringSvg" viewBox="0 0 100 100">
         <circle class="ring-track ring-el-circle" cx="50" cy="50" r="46"></circle>
@@ -390,8 +406,19 @@
         </div>
       </button>
     </div>
+    <div class="next-col is-empty" id="nextCol">
+      <div class="next-caption">Neste</div>
+      <button class="next-badge" id="nextBadge" aria-label="Trykk for å høre hva som kommer etterpå">
+        <div class="badge-inner">
+          <svg class="badge-icon" id="nextIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></svg>
+          <div class="badge-label" id="nextLabel"></div>
+        </div>
+      </button>
+      <div class="next-time tabular" id="nextTime"></div>
+    </div>
+    </div>
     <div class="stage-caption" id="stageCaption"></div>
-    <div class="hint-tap">Trykk på figuren for å høre</div>
+    <div class="hint-tap">Trykk på en figur for å høre</div>
 
     <button class="gear-btn" id="gearBtn" aria-label="Lærerinnstillinger" title="Lærerinnstillinger">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -687,7 +714,9 @@
   function periodsSorted(dayKey){
     var t = live.timetable[dayKey];
     var arr = (t && t.periods) ? t.periods.slice() : [];
-    arr.sort(function(a,b){ return timeToMinutes(a.start) - timeToMinutes(b.start); });
+    arr.sort(function(a,b){
+      return (timeToMinutes(a.start) - timeToMinutes(b.start)) || (timeToMinutes(a.end) - timeToMinutes(b.end));
+    });
     return arr;
   }
 
@@ -719,7 +748,7 @@
       idx = live.state.manualIndex;
       if (idx < 0) return {kind:"wait", next: periods[0], countdownMin: null};
       if (idx >= periods.length) return {kind:"done"};
-      return {kind:"period", period: periods[idx], index: idx, progress: null};
+      return {kind:"period", period: periods[idx], index: idx, progress: null, next: periods[idx+1] || null};
     }
 
     var auto = computeAutoIndex(periods, nowMin);
@@ -727,7 +756,7 @@
       var p = periods[auto];
       var s = timeToMinutes(p.start), e = timeToMinutes(p.end);
       var progress = Math.min(1, Math.max(0, (nowMin - s) / (e - s)));
-      return {kind:"period", period:p, index:auto, progress:progress};
+      return {kind:"period", period:p, index:auto, progress:progress, next: periods[auto+1] || null};
     }
     if (auto === periods.length){
       return {kind:"done"};
@@ -894,10 +923,26 @@
     });
   }
 
+  function renderNext(ds){
+    var nx = (ds.kind === "period" || ds.kind === "wait") ? ds.next : null;
+    var col = document.getElementById("nextCol");
+    col.classList.toggle("is-empty", !nx);
+    if (!nx) return;
+    var badge = document.getElementById("nextBadge");
+    var pal = PALETTE.find(function(p){ return p.color.toLowerCase() === (nx.color || "").toLowerCase(); });
+    badge.className = "next-badge shape-" + (nx.shape === "square" ? "square" : "circle");
+    badge.style.background = nx.color;
+    badge.style.color = pal ? pal.ink : "#FFFFFF";
+    document.getElementById("nextIcon").innerHTML = iconSvg(nx.icon || "star");
+    document.getElementById("nextLabel").textContent = nx.subject || "Time";
+    document.getElementById("nextTime").textContent = "kl. " + nx.start;
+  }
+
   function refreshStage(){
     var ds = displayState(new Date());
     renderStage("badge", ds);
     renderStage("mini", ds);
+    renderNext(ds);
     return ds;
   }
   function stageKey(ds){
@@ -927,6 +972,10 @@
   });
 
   /* ---------------- student interactions ---------------- */
+  document.getElementById("nextBadge").addEventListener("click", function(){
+    var ds = displayState(new Date());
+    if (ds.next) speak("Neste fag er " + ds.next.subject + " klokken " + ds.next.start + ".");
+  });
   document.getElementById("badgeBtn").addEventListener("click", function(){
     speakForState(displayState(new Date()));
   });
