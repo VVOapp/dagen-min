@@ -293,12 +293,34 @@
   }
   .period-row:last-child{border-bottom:none;}
   .period-row input[type=time]{flex:0 0 auto;width:108px;}
+  .period-row input[type=date]{flex:0 0 auto;width:150px;}
   .field{
     font-family:inherit;font-size:14px;padding:7px 8px;border-radius:8px;
     border:1px solid var(--line);background:var(--paper);color:var(--ink);
   }
   .field.subject{flex:1 1 140px;min-width:110px;}
-  .icon-select{flex:0 0 auto;}
+  .icon-pick{position:relative;flex:0 0 auto;}
+  .icon-pick-btn{
+    height:34px;padding:0 8px;border:1px solid var(--line);border-radius:8px;
+    background:var(--paper);color:var(--ink);cursor:pointer;
+    display:flex;align-items:center;gap:4px;
+  }
+  .icon-pick-btn svg{width:22px;height:22px;}
+  .icon-pick-btn .caret{font-size:11px;color:var(--ink-soft);}
+  .icon-pop{
+    position:absolute;top:calc(100% + 6px);left:0;z-index:30;
+    background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px;
+    box-shadow:var(--shadow-soft);
+    display:grid;grid-template-columns:repeat(6,42px);gap:6px;
+  }
+  .icon-pop button{
+    width:42px;height:42px;padding:0;border:2px solid transparent;border-radius:10px;
+    background:transparent;color:var(--ink);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .icon-pop button svg{width:26px;height:26px;}
+  .icon-pop button:hover{background:var(--accent-tint);}
+  .icon-pop button.selected{border-color:var(--accent);background:var(--accent-tint);}
   .swatch-btn{
     width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0;
   }
@@ -311,7 +333,6 @@
   .shape-pick button.selected{border-color:var(--accent);}
   .shape-pick button.sp-circle{border-radius:50%;}
   .shape-pick button.sp-square{border-radius:20%;}
-  .icon-select{font-size:13px;}
   .row-del{
     border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:18px;line-height:1;padding:4px;
   }
@@ -472,6 +493,13 @@
         </div>
 
         <div class="panel">
+          <h2>Spesielle hendelser</h2>
+          <p class="panel-desc">Noe som bare skjer en bestemt dag, for eksempel brannøvelse, tur eller besøk. Skjermen viser hendelsen mens den pågår, og går deretter tilbake til vanlig timeplan. Hendelser som er over fjernes automatisk.</p>
+          <div id="eventList"></div>
+          <button class="btn add-row-btn" id="addEventBtn">+ Legg til hendelse</button>
+        </div>
+
+        <div class="panel">
           <h2>Varsler</h2>
           <p class="panel-desc">Snakkes høyt på et bestemt klokkeslett, uansett hvilket fag som vises (f.eks. «Om 5 minutter er det lunsj»).</p>
           <div id="alertList"></div>
@@ -546,6 +574,11 @@
               <span class="knob"></span>
             </label>
           </div>
+          <div style="margin-top:14px;">
+            <label class="field-label" for="voiceSelect">Stemme</label>
+            <select id="voiceSelect" class="field" style="width:100%;"></select>
+            <p class="panel-desc" id="voiceHint" style="margin:6px 0 0;"></p>
+          </div>
           <div class="pin-change-row">
             <label class="field-label" style="margin:0;" for="pinChangeInput">PIN-kode</label>
             <input class="pin-input" id="pinChangeInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="Ny PIN-kode">
@@ -605,6 +638,15 @@
     taxi:"Taxi", pause:"Pause", toilet:"Toalett"
   };
   function iconSvg(name){ return ICONS[name] || ICONS.star; }
+  function iconSvgMarkup(name){
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + iconSvg(name) + '</svg>';
+  }
+  function closeIconPops(){
+    Array.prototype.forEach.call(document.querySelectorAll(".icon-pop"), function(el){ el.hidden = true; });
+  }
+  document.addEventListener("click", function(e){
+    if (!e.target.closest || !e.target.closest(".icon-pick")) closeIconPops();
+  });
 
   var RING_COLOR = "#2B2521";
 
@@ -687,7 +729,8 @@
   var live = {
     timetable: {},   // dayKey -> {periods:[...]}
     state: {mode:"auto", manualIndex:null, muted:false, announceChange:false, studentName:""},
-    alerts: {items:[]}
+    alerts: {items:[]},
+    events: {items:[]}
   };
   var listeners = [];
   function onLiveChange(fn){ listeners.push(fn); }
@@ -706,6 +749,10 @@
     });
     doc("alerts/config").subscribe(function(data){
       live.alerts = (data && data.items) ? data : {items:[]};
+      emitChange();
+    });
+    doc("events/list").subscribe(function(data){
+      live.events = (data && data.items) ? data : {items:[]};
       emitChange();
     });
   }
@@ -730,9 +777,61 @@
     return periods.length; // day done
   }
 
+  function dateStr(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+
+  function todaysEvents(now){
+    var today = dateStr(now);
+    return ((live.events && live.events.items) || []).filter(function(ev){
+      return ev.date === today && ev.start && ev.end && timeToMinutes(ev.start) < timeToMinutes(ev.end);
+    }).sort(function(a,b){ return timeToMinutes(a.start) - timeToMinutes(b.start); });
+  }
+
+  // what follows an event: another event, the lesson still running when it ends, or the next lesson
+  function nextAfterEvent(ev, evs, dayKey){
+    var t = timeToMinutes(ev.end);
+    var cands = [];
+    var other = evs.find(function(x){ return x.id !== ev.id && timeToMinutes(x.start) >= t; });
+    if (other) cands.push({item: other, at: timeToMinutes(other.start)});
+    var normal = dayKey ? periodsSorted(dayKey) : [];
+    var cont = normal.find(function(p){ return timeToMinutes(p.start) <= t && t < timeToMinutes(p.end); });
+    if (cont){
+      cands.push({item: Object.assign({}, cont, {start: minutesToClock(t)}), at: t});
+    } else {
+      var aft = normal.find(function(p){ return timeToMinutes(p.start) > t; });
+      if (aft) cands.push({item: aft, at: timeToMinutes(aft.start)});
+    }
+    var best = null;
+    cands.forEach(function(c){ if (!best || c.at < best.at) best = c; });
+    return best ? best.item : null;
+  }
+
   function displayState(now){
-    var dayKey = todayKey();
     now = now || new Date();
+    var base = baseDisplayState(now);
+    if (live.state.mode === "manual") return base;
+    var evs = todaysEvents(now);
+    if (!evs.length) return base;
+    var nowMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60;
+    var dayKey = todayKey();
+
+    for (var i = 0; i < evs.length; i++){
+      var s = timeToMinutes(evs[i].start), e = timeToMinutes(evs[i].end);
+      if (nowMin >= s && nowMin < e){
+        return {kind:"period", period: evs[i], index: -1, isEvent: true, progress: (nowMin - s) / (e - s), next: nextAfterEvent(evs[i], evs, dayKey)};
+      }
+    }
+    var upcoming = evs.find(function(ev){ return timeToMinutes(ev.start) > nowMin; });
+    if (upcoming){
+      var upAt = timeToMinutes(upcoming.start);
+      if (base.kind === "period" && (!base.next || upAt < timeToMinutes(base.next.start))) base.next = upcoming;
+      else if (base.kind === "wait" && upAt < timeToMinutes(base.next.start)) base.next = upcoming;
+      else if (base.kind === "done" || base.kind === "off") return {kind:"wait", next: upcoming, countdownMin: Math.max(0, Math.ceil(upAt - nowMin))};
+    }
+    return base;
+  }
+
+  function baseDisplayState(now){
+    var dayKey = todayKey();
     var nowMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60;
 
     if (!dayKey){
@@ -768,17 +867,37 @@
   }
 
   /* ---------------- speech ---------------- */
-  var voicesCache = null;
+  var voicesCache = [];
+  function voiceRank(v){
+    var n = (v.name || "") + " " + (v.voiceURI || "");
+    var r = /premium/i.test(n) ? 30 : /enhanced|forbedret|utvidet/i.test(n) ? 20 : 10;
+    return r + (/^nb/i.test(v.lang) ? 1 : 0);
+  }
+  function voiceQuality(v){
+    var n = (v.name || "") + " " + (v.voiceURI || "");
+    return /premium/i.test(n) ? "Premium" : /enhanced|forbedret|utvidet/i.test(n) ? "Forbedret" : "";
+  }
+  function norwegianVoices(){
+    if (!window.speechSynthesis) return [];
+    var all = window.speechSynthesis.getVoices();
+    if (all && all.length) voicesCache = all;
+    return voicesCache.filter(function(v){ return /^(nb|no|nn)([-_]|$)/i.test(v.lang); })
+      .sort(function(a,b){ return voiceRank(b) - voiceRank(a); });
+  }
   function pickVoice(){
-    if (!window.speechSynthesis) return null;
-    var voices = window.speechSynthesis.getVoices();
-    if (voices && voices.length) voicesCache = voices;
-    if (!voicesCache) return null;
-    var nb = voicesCache.filter(function(v){ return /^nb|^no/i.test(v.lang); });
-    return nb[0] || null;
+    var list = norwegianVoices();
+    var chosen = live.state.voiceName;
+    if (chosen){
+      var v = list.find(function(x){ return x.voiceURI === chosen; });
+      if (v) return v;
+    }
+    return list[0] || null;
   }
   if (window.speechSynthesis){
-    window.speechSynthesis.onvoiceschanged = function(){ voicesCache = window.speechSynthesis.getVoices(); };
+    window.speechSynthesis.onvoiceschanged = function(){
+      norwegianVoices();
+      if (typeof renderVoiceSelect === "function") renderVoiceSelect();
+    };
   }
   function speak(text){
     if (!window.speechSynthesis) return;
@@ -859,11 +978,11 @@
     badge: {icon:"badgeIcon", label:"badgeLabel", sub:"badgeSub", ringSvg:"ringSvg", ringCircle:"ringProgressCircle", ringSquare:"ringProgressSquare", caption:"stageCaption"},
     mini: {icon:"miniBadgeIcon", label:"miniBadgeLabel", sub:"miniBadgeSub", ringSvg:"miniRingSvg", ringCircle:"miniRingProgressCircle", ringSquare:"miniRingProgressSquare", caption:"miniCaption"}
   };
-  var ringLengthCache = {};
-  function ringTotalLength(el){
-    if (ringLengthCache[el.id] == null) ringLengthCache[el.id] = el.getTotalLength();
-    return ringLengthCache[el.id];
-  }
+  // circle r=46; rounded square 88x88 with corner radius 16 (must match the SVG in the markup)
+  var RING_LENGTH = {
+    circle: 2 * Math.PI * 46,
+    square: 4 * (88 - 2 * 16) + 2 * Math.PI * 16
+  };
   function renderStage(prefix, ds){
     var ids = STAGE_IDS[prefix];
     var iconEl = document.getElementById(ids.icon);
@@ -909,9 +1028,9 @@
     if (captionEl) captionEl.textContent = caption;
 
     if (ringSvg) ringSvg.setAttribute("class", "ring shape-" + shape);
-    [ringCircle, ringSquare].forEach(function(el){
+    [[ringCircle, RING_LENGTH.circle], [ringSquare, RING_LENGTH.square]].forEach(function(pair){
+      var el = pair[0], C = pair[1];
       if (!el) return;
-      var C = ringTotalLength(el);
       el.setAttribute("stroke-dasharray", C.toFixed(1));
       if (progress == null){
         el.style.opacity = "0";
@@ -1014,6 +1133,7 @@
     document.getElementById("teacherView").hidden = mode !== "teacher";
     if (mode === "teacher"){
       renderPeriodEditor();
+      renderEventEditor();
       renderAlertEditor();
       renderModeBanner();
     }
@@ -1065,78 +1185,189 @@
       empty.textContent = "Ingen timer lagt til for " + DAY_LABELS[activeDay].toLowerCase() + " ennå.";
       periodListEl.appendChild(empty);
     }
-    periods.forEach(function(p){
-      var row = document.createElement("div");
-      row.className = "period-row";
+    periods.forEach(function(p){ periodListEl.appendChild(buildPeriodRow(p, periodRowHandlers)); });
+  }
 
-      var startInp = document.createElement("input");
-      startInp.type = "time"; startInp.className = "field"; startInp.value = p.start;
-      var endInp = document.createElement("input");
-      endInp.type = "time"; endInp.className = "field"; endInp.value = p.end;
+  // h: {mutate(id, patch, skipRerender), remove(id), insert(p)|null, hasDate, delTitle}
+  function buildPeriodRow(p, h){
+    var row = document.createElement("div");
+    row.className = "period-row";
 
-      var subjInp = document.createElement("input");
-      subjInp.type = "text"; subjInp.className = "field subject"; subjInp.placeholder = "Fag (f.eks. Matte)"; subjInp.value = p.subject || "";
+    var dateInp = null;
+    if (h.hasDate){
+      dateInp = document.createElement("input");
+      dateInp.type = "date"; dateInp.className = "field"; dateInp.value = p.date || "";
+      dateInp.addEventListener("change", function(){ h.mutate(p.id, {date: dateInp.value}, true); });
+    }
 
-      var swatchRow = document.createElement("div");
-      swatchRow.className = "swatch-row";
-      PALETTE.forEach(function(pal){
-        var sw = document.createElement("button");
-        sw.className = "swatch-btn" + (pal.color === p.color ? " selected" : "");
-        sw.style.background = pal.color;
-        sw.title = pal.name;
-        sw.type = "button";
-        sw.addEventListener("click", function(){ mutatePeriod(p.id, {color: pal.color}); });
-        swatchRow.appendChild(sw);
-      });
+    var startInp = document.createElement("input");
+    startInp.type = "time"; startInp.className = "field"; startInp.value = p.start;
+    var endInp = document.createElement("input");
+    endInp.type = "time"; endInp.className = "field"; endInp.value = p.end;
 
-      var shapePick = document.createElement("div");
-      shapePick.className = "shape-pick";
-      SHAPES.forEach(function(sh){
-        var sb = document.createElement("button");
-        sb.type = "button";
-        sb.className = "sp-" + sh + (p.shape === sh ? " selected" : "");
-        sb.title = sh === "square" ? "Kvadrat" : "Sirkel";
-        sb.addEventListener("click", function(){ mutatePeriod(p.id, {shape: sh}); });
-        shapePick.appendChild(sb);
-      });
+    var subjInp = document.createElement("input");
+    subjInp.type = "text"; subjInp.className = "field subject"; subjInp.placeholder = h.hasDate ? "Hva skjer? (f.eks. Brannøvelse)" : "Fag (f.eks. Matte)"; subjInp.value = p.subject || "";
 
-      var iconSel = document.createElement("select");
-      iconSel.className = "field icon-select";
-      ICON_KEYS.forEach(function(k){
-        var o = document.createElement("option");
-        o.value = k; o.textContent = ICON_LABELS[k] || k; if (k === p.icon) o.selected = true;
-        iconSel.appendChild(o);
-      });
-      iconSel.addEventListener("change", function(){ mutatePeriod(p.id, {icon: iconSel.value}); });
+    var swatchRow = document.createElement("div");
+    swatchRow.className = "swatch-row";
+    PALETTE.forEach(function(pal){
+      var sw = document.createElement("button");
+      sw.className = "swatch-btn" + (pal.color === p.color ? " selected" : "");
+      sw.style.background = pal.color;
+      sw.title = pal.name;
+      sw.type = "button";
+      sw.addEventListener("click", function(){ h.mutate(p.id, {color: pal.color}); });
+      swatchRow.appendChild(sw);
+    });
 
-      var del = document.createElement("button");
-      del.className = "row-del"; del.type = "button"; del.innerHTML = "✕"; del.title = "Slett time";
-      del.addEventListener("click", function(){
-        live.timetable[activeDay].periods = live.timetable[activeDay].periods.filter(function(x){ return x.id !== p.id; });
-        savePeriods(activeDay);
-        renderPeriodEditor();
-      });
+    var shapePick = document.createElement("div");
+    shapePick.className = "shape-pick";
+    SHAPES.forEach(function(sh){
+      var sb = document.createElement("button");
+      sb.type = "button";
+      sb.className = "sp-" + sh + (p.shape === sh ? " selected" : "");
+      sb.title = sh === "square" ? "Kvadrat" : "Sirkel";
+      sb.addEventListener("click", function(){ h.mutate(p.id, {shape: sh}); });
+      shapePick.appendChild(sb);
+    });
 
+    var iconPick = document.createElement("div");
+    iconPick.className = "icon-pick";
+    var iconBtn = document.createElement("button");
+    iconBtn.type = "button"; iconBtn.className = "icon-pick-btn";
+    iconBtn.title = "Velg bilde: " + (ICON_LABELS[p.icon] || "");
+    iconBtn.setAttribute("aria-label", "Velg bilde");
+    iconBtn.innerHTML = iconSvgMarkup(p.icon) + '<span class="caret">▾</span>';
+    var iconPop = document.createElement("div");
+    iconPop.className = "icon-pop";
+    iconPop.hidden = true;
+    ICON_KEYS.forEach(function(k){
+      var ib = document.createElement("button");
+      ib.type = "button";
+      ib.className = k === p.icon ? "selected" : "";
+      ib.title = ICON_LABELS[k] || k;
+      ib.setAttribute("aria-label", ICON_LABELS[k] || k);
+      ib.innerHTML = iconSvgMarkup(k);
+      ib.addEventListener("click", function(){ h.mutate(p.id, {icon: k}); });
+      iconPop.appendChild(ib);
+    });
+    iconBtn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var willOpen = iconPop.hidden;
+      closeIconPops();
+      iconPop.hidden = !willOpen;
+      if (willOpen){
+        iconPop.style.left = "0"; iconPop.style.right = "auto";
+        var r = iconPop.getBoundingClientRect();
+        if (r.right > window.innerWidth - 8){ iconPop.style.left = "auto"; iconPop.style.right = "0"; }
+      }
+    });
+    iconPick.appendChild(iconBtn);
+    iconPick.appendChild(iconPop);
+
+    var del = document.createElement("button");
+    del.className = "row-del"; del.type = "button"; del.innerHTML = "✕"; del.title = h.delTitle;
+    del.addEventListener("click", function(){ h.remove(p.id); });
+
+    startInp.addEventListener("change", function(){ h.mutate(p.id, {start: startInp.value}, true); });
+    endInp.addEventListener("change", function(){ h.mutate(p.id, {end: endInp.value}, true); });
+    subjInp.addEventListener("input", function(){ h.mutate(p.id, {subject: subjInp.value}, true); });
+
+    row.dataset.id = p.id;
+    if (dateInp) row.appendChild(dateInp);
+    row.appendChild(startInp);
+    row.appendChild(endInp);
+    row.appendChild(subjInp);
+    row.appendChild(swatchRow);
+    row.appendChild(shapePick);
+    row.appendChild(iconPick);
+    if (h.insert){
       var ins = document.createElement("button");
       ins.className = "row-insert-btn"; ins.type = "button"; ins.textContent = "+ Sett inn etter";
       ins.title = "Legg til en ny time rett etter denne";
-      ins.addEventListener("click", function(){ insertPeriodAfter(p); });
-
-      startInp.addEventListener("change", function(){ mutatePeriod(p.id, {start: startInp.value}, true); });
-      endInp.addEventListener("change", function(){ mutatePeriod(p.id, {end: endInp.value}, true); });
-      subjInp.addEventListener("input", function(){ mutatePeriod(p.id, {subject: subjInp.value}, true); });
-
-      row.dataset.id = p.id;
-      row.appendChild(startInp);
-      row.appendChild(endInp);
-      row.appendChild(subjInp);
-      row.appendChild(swatchRow);
-      row.appendChild(shapePick);
-      row.appendChild(iconSel);
+      ins.addEventListener("click", function(){ h.insert(p); });
       row.appendChild(ins);
-      row.appendChild(del);
-      periodListEl.appendChild(row);
+    }
+    row.appendChild(del);
+    return row;
+  }
+
+  var periodRowHandlers = {
+    hasDate: false,
+    delTitle: "Slett time",
+    mutate: function(id, patch, skip){ mutatePeriod(id, patch, skip); },
+    insert: function(p){ insertPeriodAfter(p); },
+    remove: function(id){
+      live.timetable[activeDay].periods = live.timetable[activeDay].periods.filter(function(x){ return x.id !== id; });
+      savePeriods(activeDay);
+      renderPeriodEditor();
+    }
+  };
+
+  /* ---------------- teacher: one-off events ---------------- */
+  var eventListEl = document.getElementById("eventList");
+  var eventSaveTimer;
+  function saveEvents(){
+    clearTimeout(eventSaveTimer);
+    eventSaveTimer = setTimeout(function(){
+      doc("events/list").set({items: live.events.items});
+    }, 350);
+  }
+  function eventsSorted(){
+    return (live.events.items || []).slice().sort(function(a,b){
+      return ((a.date || "") < (b.date || "") ? -1 : (a.date || "") > (b.date || "") ? 1 : 0) ||
+        (timeToMinutes(a.start) - timeToMinutes(b.start));
     });
+  }
+  function renderEventEditor(){
+    eventListEl.innerHTML = "";
+    var items = eventsSorted();
+    if (!items.length){
+      var empty = document.createElement("p");
+      empty.className = "panel-desc";
+      empty.textContent = "Ingen spesielle hendelser lagt til.";
+      eventListEl.appendChild(empty);
+    }
+    items.forEach(function(ev){ eventListEl.appendChild(buildPeriodRow(ev, eventRowHandlers)); });
+  }
+  var eventRowHandlers = {
+    hasDate: true,
+    delTitle: "Slett hendelse",
+    insert: null,
+    mutate: function(id, patch, skip){
+      var arr = live.events.items;
+      var idx = arr.findIndex(function(x){ return x.id === id; });
+      if (idx === -1) return;
+      arr[idx] = Object.assign({}, arr[idx], patch);
+      saveEvents();
+      if (!skip) renderEventEditor();
+    },
+    remove: function(id){
+      live.events.items = live.events.items.filter(function(x){ return x.id !== id; });
+      saveEvents();
+      renderEventEditor();
+    }
+  };
+  document.getElementById("addEventBtn").addEventListener("click", function(){
+    var now = new Date();
+    var start = Math.ceil((now.getHours()*60 + now.getMinutes() + 1) / 15) * 15;
+    var items = live.events.items = live.events.items || [];
+    var pal = PALETTE[items.length % PALETTE.length];
+    var ev = {id: uid(), date: dateStr(now), start: minutesToClock(start), end: minutesToClock(start + 30), subject: "", color: pal.color, shape: "circle", icon: "star"};
+    items.push(ev);
+    saveEvents();
+    renderEventEditor();
+    var subj = eventListEl.querySelector('[data-id="' + ev.id + '"] .field.subject');
+    if (subj) subj.focus();
+  });
+  function pruneOldEvents(){
+    var today = dateStr(new Date());
+    var items = live.events.items || [];
+    var kept = items.filter(function(ev){ return (ev.date || "") >= today; });
+    if (kept.length !== items.length){
+      live.events.items = kept;
+      doc("events/list").set({items: kept});
+    }
   }
 
   function mutatePeriod(id, patch, skipRerender){
@@ -1282,6 +1513,35 @@
   document.getElementById("announceToggle").addEventListener("change", function(e){
     doc("state/control").update({announceChange: e.target.checked});
   });
+
+  var voiceSelectEl = document.getElementById("voiceSelect");
+  var voiceListSignature = null;
+  function renderVoiceSelect(){
+    var list = norwegianVoices();
+    var sig = list.map(function(v){ return v.voiceURI; }).join("|");
+    if (sig !== voiceListSignature){
+      voiceListSignature = sig;
+      voiceSelectEl.innerHTML = "";
+      var auto = document.createElement("option");
+      auto.value = ""; auto.textContent = "Automatisk (best tilgjengelige)";
+      voiceSelectEl.appendChild(auto);
+      list.forEach(function(v){
+        var o = document.createElement("option");
+        var q = voiceQuality(v);
+        o.value = v.voiceURI;
+        o.textContent = v.name + (q ? " – " + q : "") + " (" + v.lang + ")";
+        voiceSelectEl.appendChild(o);
+      });
+    }
+    voiceSelectEl.value = live.state.voiceName || "";
+    document.getElementById("voiceHint").textContent = list.length
+      ? "Tips: «Forbedret»- og «Premium»-stemmer høres mer naturlige ut. Last dem ned under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk. Trykk «Test tale» for å høre valget."
+      : "Fant ingen norske stemmer på denne enheten. Last ned en under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk.";
+  }
+  voiceSelectEl.addEventListener("change", function(){
+    doc("state/control").update({voiceName: voiceSelectEl.value});
+    setTimeout(function(){ speak("Hei! Slik høres denne stemmen ut."); }, 100);
+  });
   document.getElementById("testVoiceBtn").addEventListener("click", function(){
     speak("Hei! Dette er en test av talen på denne iPaden.");
   });
@@ -1297,6 +1557,7 @@
     }
     document.getElementById("muteToggle").checked = !!live.state.muted;
     document.getElementById("announceToggle").checked = !!live.state.announceChange;
+    renderVoiceSelect();
     if (document.activeElement !== nameInput){
       nameInput.value = live.state.studentName || "";
     }
@@ -1316,7 +1577,7 @@
   });
 
   /* ---------------- teacher: export / import ---------------- */
-  var EXPORT_DATA_KEYS = ["timetable/mon","timetable/tue","timetable/wed","timetable/thu","timetable/fri","state/control","alerts/config"];
+  var EXPORT_DATA_KEYS = ["timetable/mon","timetable/tue","timetable/wed","timetable/thu","timetable/fri","state/control","alerts/config","events/list"];
   document.getElementById("exportBtn").addEventListener("click", function(){
     var out = {};
     EXPORT_DATA_KEYS.forEach(function(k){
@@ -1399,6 +1660,7 @@
     });
   }
   onListFocusOut(periodListEl, renderPeriodEditor);
+  onListFocusOut(eventListEl, renderEventEditor);
   onListFocusOut(alertListEl, renderAlertEditor);
 
   function boot(){
@@ -1406,11 +1668,13 @@
       refreshStage();
       if (currentMode === "teacher"){
         if (!isEditingField(periodListEl)) renderPeriodEditor();
+        if (!isEditingField(eventListEl)) renderEventEditor();
         if (!isEditingField(alertListEl)) renderAlertEditor();
         renderModeBanner();
       }
     });
     subscribeAll();
+    pruneOldEvents();
 
     if (document.activeElement !== pinChangeInput) pinChangeInput.value = getPin();
 
