@@ -469,6 +469,7 @@
       <div class="th-title">
         <h1>Dagen min</h1>
         <span>Lærerpanel</span>
+        <span id="appVersion" style="font-weight:500;font-size:12px;opacity:.7;"></span>
       </div>
       <div class="th-header-actions">
         <button class="btn" id="testVoiceBtn">Test tale</button>
@@ -578,6 +579,10 @@
             <label class="field-label" for="voiceSelect">Stemme</label>
             <select id="voiceSelect" class="field" style="width:100%;"></select>
             <p class="panel-desc" id="voiceHint" style="margin:6px 0 0;"></p>
+            <details style="margin-top:8px;">
+              <summary style="font-size:12.5px;color:var(--ink-soft);cursor:pointer;">Feilsøking: hvilke stemmer ser appen?</summary>
+              <pre id="voiceDebug" style="white-space:pre-wrap;font-size:12px;margin:8px 0 0;color:var(--ink-soft);"></pre>
+            </details>
           </div>
           <div class="pin-change-row">
             <label class="field-label" style="margin:0;" for="pinChangeInput">PIN-kode</label>
@@ -649,6 +654,7 @@
   });
 
   var RING_COLOR = "#2B2521";
+  var APP_VERSION = "2026-10-27";
 
   var STATE_LOOK = {
     wait:{fill:"var(--wait-fill)", ink:"var(--wait-ink)", icon:"clock"},
@@ -877,12 +883,28 @@
     var n = (v.name || "") + " " + (v.voiceURI || "");
     return /premium/i.test(n) ? "Premium" : /enhanced|forbedret|utvidet/i.test(n) ? "Forbedret" : "";
   }
-  function norwegianVoices(){
+  function allVoices(){
     if (!window.speechSynthesis) return [];
     var all = window.speechSynthesis.getVoices();
     if (all && all.length) voicesCache = all;
-    return voicesCache.filter(function(v){ return /^(nb|no|nn)([-_]|$)/i.test(v.lang); })
-      .sort(function(a,b){ return voiceRank(b) - voiceRank(a); });
+    return voicesCache;
+  }
+  function norwegianVoices(){
+    return allVoices().filter(function(v){
+      return /^(nb|no|nn|nor)([-_]|$)/i.test(v.lang || "") || /norw|norsk/i.test(v.name || "");
+    }).sort(function(a,b){ return voiceRank(b) - voiceRank(a); });
+  }
+  // iPad Safari often reports voices late and may never fire "voiceschanged", so keep asking for a while
+  var voicePollsLeft = 0;
+  function pollVoices(){
+    voicePollsLeft = 12;
+    (function again(){
+      if (norwegianVoices().length || voicePollsLeft-- <= 0){
+        if (typeof renderVoiceSelect === "function") renderVoiceSelect();
+        return;
+      }
+      setTimeout(again, 500);
+    })();
   }
   function pickVoice(){
     var list = norwegianVoices();
@@ -1132,6 +1154,7 @@
     document.getElementById("studentView").hidden = mode !== "student";
     document.getElementById("teacherView").hidden = mode !== "teacher";
     if (mode === "teacher"){
+      pollVoices();
       renderPeriodEditor();
       renderEventEditor();
       renderAlertEditor();
@@ -1535,8 +1558,13 @@
     }
     voiceSelectEl.value = live.state.voiceName || "";
     document.getElementById("voiceHint").textContent = list.length
-      ? "Tips: «Forbedret»- og «Premium»-stemmer høres mer naturlige ut. Last dem ned under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk. Trykk «Test tale» for å høre valget."
-      : "Fant ingen norske stemmer på denne enheten. Last ned en under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk.";
+      ? "Tips: «Forbedret»- og «Premium»-stemmer høres mer naturlige ut. Last dem ned under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk. Siri-stemmer er ikke tilgjengelige for nettapper."
+      : "Appen ser ingen norske stemmer på denne enheten. Last ned en (f.eks. Nora eller Henrik, ikke Siri-stemmene) under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk, og last siden på nytt. Siri-stemmer er ikke tilgjengelige for nettapper.";
+    var all = allVoices();
+    document.getElementById("voiceDebug").textContent =
+      (window.speechSynthesis ? "Talesyntese støttes. " : "Talesyntese støttes IKKE i denne nettleseren. ") +
+      all.length + " stemmer totalt, " + list.length + " norske.\n" +
+      all.map(function(v){ return "• " + v.name + " | " + v.lang + " | " + v.voiceURI; }).join("\n");
   }
   voiceSelectEl.addEventListener("change", function(){
     doc("state/control").update({voiceName: voiceSelectEl.value});
@@ -1676,6 +1704,7 @@
     subscribeAll();
     pruneOldEvents();
 
+    document.getElementById("appVersion").textContent = "v" + APP_VERSION;
     if (document.activeElement !== pinChangeInput) pinChangeInput.value = getPin();
 
     var savedMode = null;
