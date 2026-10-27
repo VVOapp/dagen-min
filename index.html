@@ -579,10 +579,6 @@
             <label class="field-label" for="voiceSelect">Stemme</label>
             <select id="voiceSelect" class="field" style="width:100%;"></select>
             <p class="panel-desc" id="voiceHint" style="margin:6px 0 0;"></p>
-            <details style="margin-top:8px;">
-              <summary style="font-size:12.5px;color:var(--ink-soft);cursor:pointer;">Feilsøking: hvilke stemmer ser appen?</summary>
-              <pre id="voiceDebug" style="white-space:pre-wrap;font-size:12px;margin:8px 0 0;color:var(--ink-soft);"></pre>
-            </details>
           </div>
           <div class="pin-change-row">
             <label class="field-label" style="margin:0;" for="pinChangeInput">PIN-kode</label>
@@ -1548,23 +1544,29 @@
       var auto = document.createElement("option");
       auto.value = ""; auto.textContent = "Automatisk (best tilgjengelige)";
       voiceSelectEl.appendChild(auto);
-      list.forEach(function(v){
-        var o = document.createElement("option");
+      var labelCount = {}, labelSeen = {};
+      var labels = list.map(function(v){
         var q = voiceQuality(v);
+        var l = v.name + (q ? " – " + q : "") + " (" + v.lang + ")";
+        labelCount[l] = (labelCount[l] || 0) + 1;
+        return l;
+      });
+      list.forEach(function(v, i){
+        var o = document.createElement("option");
+        var l = labels[i];
+        if (labelCount[l] > 1){
+          labelSeen[l] = (labelSeen[l] || 0) + 1;
+          l += " – versjon " + labelSeen[l];
+        }
         o.value = v.voiceURI;
-        o.textContent = v.name + (q ? " – " + q : "") + " (" + v.lang + ")";
+        o.textContent = l;
         voiceSelectEl.appendChild(o);
       });
     }
     voiceSelectEl.value = live.state.voiceName || "";
     document.getElementById("voiceHint").textContent = list.length
-      ? "Tips: «Forbedret»- og «Premium»-stemmer høres mer naturlige ut. Last dem ned under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk. Siri-stemmer er ikke tilgjengelige for nettapper."
+      ? "Tips: «Forbedret»- og «Premium»-stemmer høres mer naturlige ut. Last dem ned under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk. Bare stemmer som er lastet ned på iPaden vises her, og Siri-stemmer er ikke tilgjengelige for nettapper. Velg en stemme for å høre den."
       : "Appen ser ingen norske stemmer på denne enheten. Last ned en (f.eks. Nora eller Henrik, ikke Siri-stemmene) under Innstillinger → Tilgjengelighet → Opplest innhold → Stemmer → Norsk, og last siden på nytt. Siri-stemmer er ikke tilgjengelige for nettapper.";
-    var all = allVoices();
-    document.getElementById("voiceDebug").textContent =
-      (window.speechSynthesis ? "Talesyntese støttes. " : "Talesyntese støttes IKKE i denne nettleseren. ") +
-      all.length + " stemmer totalt, " + list.length + " norske.\n" +
-      all.map(function(v){ return "• " + v.name + " | " + v.lang + " | " + v.voiceURI; }).join("\n");
   }
   voiceSelectEl.addEventListener("change", function(){
     doc("state/control").update({voiceName: voiceSelectEl.value});
